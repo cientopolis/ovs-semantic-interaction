@@ -185,7 +185,7 @@ class GraphDBService:
             raise Exception(f"Error al obtener relaciones de la entidad: {str(e)}")
 
     async def get_geolocalized_entities(self, repo_id: str) -> List[Dict[str, Any]]:
-        """Obtiene las entidades geolocalizadas presentes en el repositorio, soportando la navegación a través de rec:includes hacia el Space con geometría, y la navegación :hasFeature."""
+        """Obtiene las entidades geolocalizadas presentes en el repositorio, soportando la navegación a través de rec:includes hacia el Space con geometría en varios niveles (hasta 3 niveles), navegación :hasFeature y GeoSPARQL directo."""
         query = """
         PREFIX : <http://www.semanticweb.org/luciana/ontologies/2024/8/inmontology#>
         PREFIX rec: <https://w3id.org/rec#>
@@ -194,37 +194,67 @@ class GraphDBService:
         PREFIX owl: <http://www.w3.org/2002/07/owl#>
         
         SELECT DISTINCT ?entity ?label ?type ?coords ?geometry WHERE {
+            {
+                # Relación 0: La entidad con geometría es la entidad misma
+                ?geometry geosparql:asWKT ?coords .
+                ?entity geosparql:hasGeometry ?geometry .
+            } UNION {
+                # Relación 1 (Includes Nivel 1)
+                ?geometry geosparql:asWKT ?coords .
+                ?space geosparql:hasGeometry ?geometry .
+                ?entity rec:includes ?space .
+            } UNION {
+                # Relación 1 Inversa (IncludedIn Nivel 1)
+                ?geometry geosparql:asWKT ?coords .
+                ?space geosparql:hasGeometry ?geometry .
+                ?space rec:includedIn ?entity .
+            } UNION {
+                # Relación 2 (Includes Nivel 2)
+                ?geometry geosparql:asWKT ?coords .
+                ?space geosparql:hasGeometry ?geometry .
+                ?entity rec:includes ?p1 .
+                ?p1 rec:includes ?space .
+            } UNION {
+                # Relación 2 Inversa (IncludedIn Nivel 2)
+                ?geometry geosparql:asWKT ?coords .
+                ?space geosparql:hasGeometry ?geometry .
+                ?space rec:includedIn ?p1 .
+                ?p1 rec:includedIn ?entity .
+            } UNION {
+                # Relación 3 (Includes Nivel 3)
+                ?geometry geosparql:asWKT ?coords .
+                ?space geosparql:hasGeometry ?geometry .
+                ?entity rec:includes ?p1 .
+                ?p1 rec:includes ?p2 .
+                ?p2 rec:includes ?space .
+            } UNION {
+                # Relación 3 Inversa (IncludedIn Nivel 3)
+                ?geometry geosparql:asWKT ?coords .
+                ?space geosparql:hasGeometry ?geometry .
+                ?space rec:includedIn ?p2 .
+                ?p2 rec:includedIn ?p1 .
+                ?p1 rec:includedIn ?entity .
+            } UNION {
+                # Relación 4: Inmueble con feature (e.g. dirección) que tiene la geometría
+                ?geometry geosparql:asWKT ?coords .
+                ?space geosparql:hasGeometry ?geometry .
+                ?entity :hasFeature ?space .
+            } UNION {
+                # Caso B: Relación directa RealEstate Core clásica
+                ?geometry rec:coordinates ?coords .
+                ?entity rec:geometry ?geometry .
+            }
+            
+            # Obtener el tipo de la entidad y excluir owl:Class
             ?entity a ?type .
             FILTER(?type != owl:Class)
-            {
-                # Caso 1: Navegación desde RealEstate/Listing a Space/Site usando rec:includes
-                ?entity rec:includes ?space .
-                ?space geosparql:hasGeometry ?geometry .
-                ?geometry geosparql:asWKT ?coords .
-            } UNION {
-                # Caso 2: Navegación desde RealEstate/Listing a Space/Site usando relación inversa rec:includedIn
-                ?space rec:includedIn ?entity .
-                ?space geosparql:hasGeometry ?geometry .
-                ?geometry geosparql:asWKT ?coords .
-            } UNION {
-                # Caso 3: Navegación por :hasFeature y luego geosparql:hasGeometry
-                ?entity :hasFeature ?feature .
-                ?feature geosparql:hasGeometry ?geometry .
-                ?geometry geosparql:asWKT ?coords .
-            } UNION {
-                # Caso 4: Relación directa GeoSPARQL
-                ?entity geosparql:hasGeometry ?geometry .
-                ?geometry geosparql:asWKT ?coords .
-            } UNION {
-                # Caso 5: Relación directa RealEstate Core
-                ?entity rec:geometry ?geometry .
-                ?geometry rec:coordinates ?coords .
-            }
+            
+            # Etiqueta opcional en español o neutra
             OPTIONAL {
                 ?entity rdfs:label ?label .
                 FILTER(lang(?label) = "es" || lang(?label) = "es-ar" || lang(?label) = "")
             }
-        } LIMIT 300
+        } LIMIT 5000
         """
         try:
             res = await self.execute_query(repo_id, query)
