@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OVS Semantic Hub - Explorador de Grafos</title>
+    
+    <!-- Fuentes de Google -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    
+    <!-- Leaflet.js para mapas -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <!-- Vis.js para visualización de grafos -->
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    
+    <!-- Estilos personalizados -->
+    <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Panel Lateral (Sidebar) -->
+        <aside class="app-sidebar" id="app-sidebar-panel">
+            <div class="sidebar-header">
+                <div class="logo-container">
+                    <i class="fa-solid fa-circle-nodes logo-icon"></i>
+                    <span class="logo-text">OVS Semántica</span>
+                </div>
+            </div>
+            
+            <!-- Estado de Conexión -->
+            <div class="connection-status-card" id="connection-status-container">
+                <div class="status-indicator">
+                    <span class="status-dot dot-offline" id="connection-dot"></span>
+                    <span class="status-label" id="connection-text">Desconectado</span>
+                </div>
+                <div class="active-repo-badge" id="active-repo-badge">
+                    <i class="fa-solid fa-database badge-icon"></i>
+                    <span id="active-repo-text">Ninguno</span>
+                </div>
+            </div>
+            
+            <!-- Menú de Navegación -->
+            <nav class="sidebar-menu" id="sidebar-navigation-menu">
+                <ul>
+                    <li class="menu-item active" id="nav-btn-dashboard" data-target="dashboard-view">
+                        <i class="fa-solid fa-chart-pie"></i>
+                        <span>Panel General</span>
+                    </li>
+                    <li class="menu-item" id="nav-btn-explorer" data-target="explorer-view">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <span>Explorador Entidades</span>
+                    </li>
+                    <li class="menu-item" id="nav-btn-sparql" data-target="sparql-view">
+                        <i class="fa-solid fa-terminal"></i>
+                        <span>Consola SPARQL</span>
+                    </li>
+                    <li class="menu-item" id="nav-btn-graph" data-target="graph-view">
+                        <i class="fa-solid fa-diagram-project"></i>
+                        <span>Red de Relaciones</span>
+                    </li>
+                    <li class="menu-item" id="nav-btn-map" data-target="map-view">
+                        <i class="fa-solid fa-map-location-dot"></i>
+                        <span>Mapa Geográfico</span>
+                    </li>
+                </ul>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <div class="ontology-info">
+                    <i class="fa-solid fa-bookmark"></i>
+                    <span>OVS-inmontology.owl</span>
+                </div>
+            </div>
+        </aside>
+        
+        <!-- Área de Contenido Principal -->
+        <main class="app-main-content" id="app-main-workspace">
+            <!-- Encabezado superior -->
+            <header class="app-header">
+                <div class="header-search-bar" style="visibility: hidden;">
+                    <!-- Placeholder si se necesita una búsqueda global -->
+                </div>
+                <div class="header-actions">
+                    <button class="btn btn-secondary" id="btn-refresh-connection" title="Refrescar conexión">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                    </button>
+                    <div class="user-profile">
+                        <i class="fa-solid fa-circle-user profile-icon"></i>
+                        <span class="user-name">Observatorio</span>
+                    </div>
+                </div>
+            </header>
+            
+            <!-- Vistas dinámicas -->
+            <div class="workspace-views">
+                
+                <!-- Vista 1: Dashboard -->
+                <section class="view-panel active" id="dashboard-view">
+                    <div class="view-header">
+                        <h1>Panel General</h1>
+                        <p class="subtitle">Estado de la base de datos semántica y selección de repositorios</p>
+                    </div>
+                    
+                    <div class="dashboard-grid">
+                        <!-- Card: Selector de Repositorios -->
+                        <div class="dashboard-card card-repo-selector">
+                            <h2><i class="fa-solid fa-database card-icon"></i> Seleccionar Repositorio</h2>
+                            <p class="card-desc">Elija el grafo de conocimiento activo en GraphDB:</p>
+                            <div class="select-container">
+                                <select id="select-repository" class="form-select">
+                                    <option value="" disabled selected>Cargando repositorios...</option>
+                                </select>
+                            </div>
+                            <div class="repo-selection-actions">
+                                <button class="btn btn-primary" id="btn-connect-repo" disabled>Conectar Repositorio</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Card: Estadísticas de Tripletas -->
+                        <div class="dashboard-card card-stats-summary">
+                            <h2><i class="fa-solid fa-chart-line card-icon"></i> Estadísticas del Grafo</h2>
+                            <div class="stat-large">
+                                <span class="stat-number" id="stats-triple-count">-</span>
+                                <span class="stat-label">Tripletas Totales</span>
+                            </div>
+                            <div class="stat-details" id="stats-summary-details">
+                                <p class="text-muted">Conecte un repositorio para ver detalles.</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Card: Clases Más Comunes -->
+                        <div class="dashboard-card card-classes-chart">
+                            <h2><i class="fa-solid fa-tags card-icon"></i> Clases Principales en el Grafo</h2>
+                            <div class="classes-list-container">
+                                <ul class="classes-list" id="dashboard-top-classes-list">
+                                    <li class="text-muted">Conecte un repositorio para cargar las clases de la ontología OVS.</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <!-- Card: Información de la Ontología -->
+                        <div class="dashboard-card card-ontology-info">
+                            <h2><i class="fa-solid fa-book-open card-icon"></i> Ontología OVS (inmontology)</h2>
+                            <p>Esta aplicación interactúa con la ontología <strong>inmontology</strong> del Observatorio Inmobiliario (OVS-UNLP).</p>
+                            <div class="ontology-namespaces">
+                                <div class="ns-row"><span class="ns-prefix">io:</span> <span class="ns-uri">http://www.semanticweb.org/luciana/ontologies/2024/8/inmontology#</span></div>
+                                <div class="ns-row"><span class="ns-prefix">rec:</span> <span class="ns-uri">https://w3id.org/rec#</span></div>
+                                <div class="ns-row"><span class="ns-prefix">gr:</span> <span class="ns-uri">http://purl.org/goodrelations/v1#</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Vista 2: Explorador de Entidades -->
+                <section class="view-panel" id="explorer-view">
+                    <!-- Overlay de Bloqueo -->
+                    <div class="repo-lock-overlay">
+                        <i class="fa-solid fa-lock lock-icon"></i>
+                        <h3>Repositorio no Conectado</h3>
+                        <p>Para ver y explorar las entidades de la ontología, primero debe seleccionar y conectar un repositorio activo desde el Panel General.</p>
+                        <button class="btn btn-primary btn-go-to-dashboard">Ir al Panel General</button>
+                    </div>
+                    
+                    <div class="view-header">
+                        <h1>Explorador de Entidades</h1>
+                        <p class="subtitle">Explore las clases, propiedades e instancias de la ontología</p>
+                    </div>
+                    
+                    <div class="explorer-layout">
+                        <!-- Panel de búsqueda e instancias -->
+                        <div class="explorer-sidebar-card">
+                            <h3>Clases & Búsqueda</h3>
+                            <div class="form-group search-group">
+                                <input type="text" id="explorer-search-input" placeholder="Buscar por URI o etiqueta..." class="form-control">
+                                <button class="btn btn-primary" id="btn-explorer-search"><i class="fa-solid fa-magnifying-glass"></i></button>
+                            </div>
+                            <div class="class-filter-container">
+                                <label for="explorer-class-select">Filtrar por Clase:</label>
+                                <select id="explorer-class-select" class="form-select">
+                                    <option value="">Todas las clases</option>
+                                </select>
+                            </div>
+                            <div class="instances-list-card">
+                                <h4>Instancias Encontradas</h4>
+                                <ul class="instances-list" id="explorer-instances-list">
+                                    <li class="text-muted">Ingrese una búsqueda o seleccione una clase.</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <!-- Panel de visualización de detalles de la entidad -->
+                        <div class="explorer-details-card">
+                            <div class="details-card-header">
+                                <h3 id="explorer-entity-title">Seleccione una entidad</h3>
+                                <span class="badge" id="explorer-entity-class-badge" style="display:none;">Clase</span>
+                            </div>
+                            <div class="entity-uri-bar">
+                                <span class="uri-label">URI:</span>
+                                <span class="uri-value" id="explorer-entity-uri">-</span>
+                            </div>
+                            
+                            <div class="entity-relations-tables">
+                                <div class="relations-section">
+                                    <h4>Propiedades Salientes (Sujeto -> Predicado -> Objeto)</h4>
+                                    <div class="table-container">
+                                        <table class="table" id="table-outgoing-relations">
+                                            <thead>
+                                                <tr>
+                                                    <th>Predicado</th>
+                                                    <th>Objeto / Valor</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td colspan="2" class="text-muted text-center">No hay datos que mostrar.</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                
+                                <div class="relations-section">
+                                    <h4>Propiedades Entrantes (Sujeto -> Predicado -> Sujeto Original)</h4>
+                                    <div class="table-container">
+                                        <table class="table" id="table-incoming-relations">
+                                            <thead>
+                                                <tr>
+                                                    <th>Sujeto</th>
+                                                    <th>Predicado</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td colspan="2" class="text-muted text-center">No hay datos que mostrar.</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Vista 3: Consola SPARQL -->
+                <section class="view-panel" id="sparql-view">
+                    <!-- Overlay de Bloqueo -->
+                    <div class="repo-lock-overlay">
+                        <i class="fa-solid fa-lock lock-icon"></i>
+                        <h3>Repositorio no Conectado</h3>
+                        <p>Para ejecutar consultas en la Consola SPARQL, primero debe seleccionar y conectar un repositorio activo desde el Panel General.</p>
+                        <button class="btn btn-primary btn-go-to-dashboard">Ir al Panel General</button>
+                    </div>
+                    
+                    <div class="view-header">
+                        <h1>Consola SPARQL</h1>
+                        <p class="subtitle">Escriba y ejecute consultas SPARQL directamente en el repositorio</p>
+                    </div>
+                    
+                    <div class="sparql-console-layout">
+                        <!-- Panel de entrada -->
+                        <div class="sparql-input-card">
+                            <div class="input-card-header">
+                                <h3>Editor SPARQL</h3>
+                                <div class="templates-dropdown">
+                                    <select id="select-sparql-template" class="form-select select-sm">
+                                        <option value="">-- Cargar Plantilla --</option>
+                                        <option value="list_classes">Listar todas las clases</option>
+                                        <option value="list_properties">Listar propiedades</option>
+                                        <option value="list_properties_realestate">Listar propiedades inmobiliarias (Inmuebles)</option>
+                                        <option value="list_geolocalized">Listar coordenadas geográficas</option>
+                                        <option value="list_triples_limit">Primeras 100 tripletas</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <textarea id="sparql-editor-textarea" class="sparql-textarea" spellcheck="false"># Ingrese su consulta SPARQL aquí
+SELECT ?s ?p ?o WHERE {
+    ?s ?p ?o .
+} LIMIT 100</textarea>
+                            
+                            <div class="editor-actions">
+                                <button class="btn btn-secondary" id="btn-format-sparql">Formatear</button>
+                                <button class="btn btn-primary" id="btn-run-query"><i class="fa-solid fa-play"></i> Ejecutar Consulta</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Panel de resultados -->
+                        <div class="sparql-results-card">
+                            <div class="results-card-header">
+                                <h3>Resultados de la Consulta</h3>
+                                <button class="btn btn-secondary btn-sm" id="btn-export-json" disabled><i class="fa-solid fa-download"></i> Exportar JSON</button>
+                            </div>
+                            <div class="results-meta" id="sparql-results-meta">
+                                Consulta no ejecutada.
+                            </div>
+                            <div class="table-container flex-grow" id="sparql-results-table-container">
+                                <table class="table" id="sparql-results-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Sujeto</th>
+                                            <th>Predicado</th>
+                                            <th>Objeto</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td colspan="3" class="text-muted text-center">Presione "Ejecutar Consulta" para ver los resultados aquí.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Vista 4: Red de Relaciones (Vis.js) -->
+                <section class="view-panel" id="graph-view">
+                    <!-- Overlay de Bloqueo -->
+                    <div class="repo-lock-overlay">
+                        <i class="fa-solid fa-lock lock-icon"></i>
+                        <h3>Repositorio no Conectado</h3>
+                        <p>Para explorar interactivamente la Red de Relaciones del grafo, primero debe seleccionar y conectar un repositorio activo desde el Panel General.</p>
+                        <button class="btn btn-primary btn-go-to-dashboard">Ir al Panel General</button>
+                    </div>
+                    
+                    <div class="view-header">
+                        <h1>Red de Relaciones</h1>
+                        <p class="subtitle">Visualice el grafo de forma interactiva con nodos y aristas de conexión</p>
+                    </div>
+                    
+                    <div class="graph-workspace-layout">
+                        <!-- Panel de configuración del grafo -->
+                        <div class="graph-sidebar">
+                            <h3>Controles de Red</h3>
+                            <div class="form-group">
+                                <label for="graph-root-uri">URI Nodo Inicial:</label>
+                                <input type="text" id="graph-root-uri" class="form-control" placeholder="Seleccione desde explorador o pegue URI...">
+                            </div>
+                            <button class="btn btn-primary btn-block" id="btn-load-graph-root">Cargar Red desde Nodo</button>
+                            
+                            <div class="graph-legend">
+                                <h4>Leyenda de Nodos</h4>
+                                <ul class="legend-list">
+                                    <li><span class="legend-color node-color-realestate"></span> RealEstate (Inmueble)</li>
+                                    <li><span class="legend-color node-color-feature"></span> Feature (Propiedad)</li>
+                                    <li><span class="legend-color node-color-space"></span> Space / Region (Lugar)</li>
+                                    <li><span class="legend-color node-color-literal"></span> Valor Literal (Texto/Número)</li>
+                                    <li><span class="legend-color node-color-other"></span> Otro Recurso</li>
+                                </ul>
+                            </div>
+                            
+                            <div class="graph-instructions">
+                                <p><i class="fa-solid fa-circle-info"></i> <strong>Instrucciones:</strong></p>
+                                <ul>
+                                    <li>Haga doble clic sobre un nodo para expandir sus relaciones vecinas.</li>
+                                    <li>Haga clic en un nodo para seleccionarlo y ver sus propiedades en el explorador.</li>
+                                    <li>Puede arrastrar nodos para reorganizar el lienzo.</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <!-- Lienzo del grafo -->
+                        <div class="graph-canvas-container">
+                            <div id="graph-network-canvas">
+                                <div class="canvas-placeholder">
+                                    <i class="fa-solid fa-diagram-project placeholder-icon"></i>
+                                    <p>Ingrese un nodo inicial o explore para interactuar con la red.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Vista 5: Mapa Geográfico (Leaflet) -->
+                <section class="view-panel" id="map-view">
+                    <!-- Overlay de Bloqueo -->
+                    <div class="repo-lock-overlay">
+                        <i class="fa-solid fa-lock lock-icon"></i>
+                        <h3>Repositorio no Conectado</h3>
+                        <p>Para visualizar en el Mapa Geográfico los inmuebles y coordenadas de la ontología, primero debe seleccionar y conectar un repositorio activo desde el Panel General.</p>
+                        <button class="btn btn-primary btn-go-to-dashboard">Ir al Panel General</button>
+                    </div>
+                    
+                    <div class="view-header">
+                        <h1>Mapa Geográfico</h1>
+                        <p class="subtitle">Localización espacial de las entidades y recursos del grafo de conocimiento</p>
+                    </div>
+                    
+                    <div class="map-workspace-layout">
+                        <!-- Barra de estadísticas o filtros de mapa -->
+                        <div class="map-sidebar">
+                            <h3>Entidades con Ubicación</h3>
+                            <p class="text-muted">Búsqueda de inmuebles o puntos geográficos definidos mediante la ontología.</p>
+                            <button class="btn btn-primary btn-block" id="btn-load-map-markers">Cargar Marcadores en Mapa</button>
+                            <div class="map-legend">
+                                <h4>Filtro de Clases</h4>
+                                <div class="form-check-group" id="map-filters-group">
+                                    <label class="form-check-label"><input type="checkbox" checked value="Apartment" class="map-filter-checkbox"> Departamentos</label>
+                                    <label class="form-check-label"><input type="checkbox" checked value="House" class="map-filter-checkbox"> Casas</label>
+                                    <label class="form-check-label"><input type="checkbox" checked value="Land" class="map-filter-checkbox"> Terrenos</label>
+                                    <label class="form-check-label"><input type="checkbox" checked value="Store" class="map-filter-checkbox"> Locales</label>
+                                    <label class="form-check-label"><input type="checkbox" checked value="other" class="map-filter-checkbox"> Otros</label>
+                                </div>
+                            </div>
+                            <div class="marker-list-container">
+                                <h4>Lista de Ubicaciones (<span id="map-marker-count">0</span>)</h4>
+                                <ul class="marker-list" id="map-marker-list">
+                                    <li class="text-muted">Haga clic en 'Cargar Marcadores' para escanear el repositorio.</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <!-- Lienzo del mapa -->
+                        <div class="map-canvas-container">
+                            <div id="map-leaflet-canvas"></div>
+                        </div>
+                    </div>
+                </section>
+                
+            </div>
+        </main>
+    </div>
+    
+    <!-- Script Principal -->
+    <script type="module" src="/src/main.js"></script>
+</body>
+</html>
