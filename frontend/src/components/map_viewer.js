@@ -9,12 +9,13 @@ export class MapViewer {
         this.loadButton = document.getElementById('btn-load-map-markers');
         this.markerCountElement = document.getElementById('map-marker-count');
         this.markerListElement = document.getElementById('map-marker-list');
-        this.filterCheckboxes = document.querySelectorAll('.map-filter-checkbox');
+        this.filtersGroupElement = document.getElementById('map-filters-group');
         
         this.map = null;
         this.markersGroup = null;
         this.allMarkersData = []; // Guardar datos cargados en memoria
         this.leafletMarkersMap = new Map(); // Mapeo URI -> Marker de Leaflet
+        this.activeClasses = new Set(); // Clases actualmente visibles (filtro)
         
         this.initMap();
         this.initEvents();
@@ -30,7 +31,7 @@ export class MapViewer {
             zoomControl: true
         });
 
-        // Usar capa de mapa claro (CartoDB Positron) para combinar con el diseño iluminado
+        // Usar capa de mapa claro (CartoDB Positron)
         L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
             subdomains: 'abcd',
@@ -43,12 +44,7 @@ export class MapViewer {
     initEvents() {
         this.loadButton.addEventListener('click', () => this.loadGeolocalized());
 
-        // Eventos de cambios en filtros
-        this.filterCheckboxes.forEach(cb => {
-            cb.addEventListener('change', () => this.applyFilters());
-        });
-
-        // Registrar en el estado si cambia el repositorio
+        // Limpiar marcadores cuando cambia el repositorio activo
         this.appState.onRepositoryChanged(() => {
             this.clearMarkers();
         });
@@ -58,8 +54,11 @@ export class MapViewer {
         this.markersGroup.clearLayers();
         this.allMarkersData = [];
         this.leafletMarkersMap.clear();
+        this.activeClasses.clear();
         this.markerCountElement.textContent = '0';
         this.markerListElement.innerHTML = '<li class="text-muted">Haga clic en \'Cargar Marcadores\' para escanear el repositorio.</li>';
+        // Resetear panel de filtros
+        this.filtersGroupElement.innerHTML = '<span class="text-muted" style="font-size:12px">Cargue marcadores para ver filtros disponibles.</span>';
     }
 
     async loadGeolocalized() {
@@ -71,11 +70,12 @@ export class MapViewer {
 
         this.loadButton.disabled = true;
         this.loadButton.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Cargando...';
-        this.markerListElement.innerHTML = '<li class="text-muted">Escaneando entidades en GraphDB...</li>';
+        this.markerListElement.innerHTML = '<li class="text-muted">Escaneando entidades RealEstate en GraphDB...</li>';
         
         try {
             const data = await getGeolocalizedEntities(repoId);
             this.allMarkersData = data;
+            this.buildDynamicFilters(data);
             this.applyFilters();
         } catch (error) {
             console.error('Error loading map coordinates:', error);
@@ -86,65 +86,126 @@ export class MapViewer {
         }
     }
 
+    /**
+     * Construye dinámicamente los checkboxes de filtro según las clases reales
+     * que devuelve el backend (subclases de rec:RealEstate).
+     */
+    buildDynamicFilters(data) {
+        // Recopilar todas las clases presentes y su frecuencia
+        const classMap = new Map();
+        data.forEach(item => {
+            const shortClass = this.getShortClass(item.type);
+            classMap.set(shortClass, (classMap.get(shortClass) || 0) + 1);
+        });
+
+        // Limpiar el panel de filtros y el set de clases activas
+        this.filtersGroupElement.innerHTML = '';
+        this.activeClasses.clear();
+
+        if (classMap.size === 0) {
+            this.filtersGroupElement.innerHTML = '<span class="text-muted" style="font-size:12px">Sin entidades geolocalizadas.</span>';
+            return;
+        }
+
+        // Paleta de colores para asignar a cada clase
+        const palette = [
+            '#f59e0b', '#3b82f6', '#10b981', '#ef4444', '#8b5cf6',
+            '#06b6d4', '#f97316', '#84cc16', '#ec4899', '#6b7280'
+        ];
+        let paletteIndex = 0;
+
+        // Ordenar por frecuencia descendente
+        const sorted = [...classMap.entries()].sort((a, b) => b[1] - a[1]);
+
+        sorted.forEach(([shortClass, count]) => {
+            const color = palette[paletteIndex % palette.length];
+            paletteIndex++;
+            this.activeClasses.add(shortClass);
+
+            const label = document.createElement('label');
+            label.className = 'form-check-label';
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = true;
+            checkbox.value = shortClass;
+            checkbox.className = 'map-filter-checkbox';
+            checkbox.dataset.color = color;
+            checkbox.addEventListener('change', () => {
+                if (checkbox.checked) {
+                    this.activeClasses.add(shortClass);
+                } else {
+                    this.activeClasses.delete(shortClass);
+                }
+                this.applyFilters();
+            });
+
+            const dot = document.createElement('span');
+            dot.style.cssText = `display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};margin:0 4px;vertical-align:middle;`;
+
+            label.appendChild(checkbox);
+            label.appendChild(dot);
+            label.appendChild(document.createTextNode(`${shortClass} `));
+
+            const small = document.createElement('small');
+            small.className = 'text-muted';
+            small.textContent = `(${count})`;
+            label.appendChild(small);
+
+            this.filtersGroupElement.appendChild(label);
+        });
+    }
+
     applyFilters() {
         this.markersGroup.clearLayers();
         this.leafletMarkersMap.clear();
         this.markerListElement.innerHTML = '';
-        
-        // Obtener filtros seleccionados
-        const activeFilters = Array.from(this.filterCheckboxes)
-            .filter(cb => cb.checked)
-            .map(cb => cb.value);
+
+        // Construir mapa de clase -> color desde los checkboxes actuales
+        const colorMap = new Map();
+        this.filtersGroupElement.querySelectorAll('.map-filter-checkbox').forEach(cb => {
+            colorMap.set(cb.value, cb.dataset.color || '#6b7280');
+        });
 
         let count = 0;
         
         this.allMarkersData.forEach(item => {
-            // Determinar clase simplificada (el backend devuelve la URI de la clase en el campo 'type')
-            const fullClass = item.type || item.class || '';
-            const shortClass = fullClass ? fullClass.split('#').pop().split('/').pop() : 'Unknown';
+            const shortClass = this.getShortClass(item.type);
             
-            // Verificar si encaja en los filtros activos
-            let filterGroup = 'other';
-            if (['Apartment', 'House', 'Land', 'Store'].includes(shortClass)) {
-                filterGroup = shortClass;
-            }
+            // Saltar si la clase no está activa en el filtro
+            if (!this.activeClasses.has(shortClass)) return;
 
-            if (!activeFilters.includes(filterGroup)) return;
-
-            // Parsear coordenadas. Formatos comunes:
-            // "POINT(-57.9546 -34.9213)" -> WKT (normalmente X=lon, Y=lat en Sudamérica)
-            // "-34.9213, -57.9546" -> simple lat,lon
+            // Parsear coordenadas WKT
             const parsedCoords = this.parseCoordinatesString(item.coords || item.coordinates);
             if (!parsedCoords) return;
 
             const [lat, lon] = parsedCoords;
+            if (isNaN(lat) || isNaN(lon)) return;
             count++;
 
-            // Determinar color de marcador según grupo
-            const markerColor = this.getMarkerColorByClass(filterGroup);
+            const markerColor = colorMap.get(shortClass) || '#6b7280';
             
-            // Crear icono personalizado brillante
+            // Crear icono personalizado con color de la clase
             const customIcon = L.divIcon({
                 className: 'custom-map-marker',
-                html: `<div style="background-color: ${markerColor}; box-shadow: 0 0 10px ${markerColor}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white;"></div>`,
+                html: `<div style="background-color: ${markerColor}; box-shadow: 0 0 8px ${markerColor}88; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white;"></div>`,
                 iconSize: [12, 12],
                 iconAnchor: [6, 6]
             });
 
-            // Crear popup
+            // Crear popup con información del RealEstate
             const popupContent = document.createElement('div');
             popupContent.innerHTML = `
-                <h4>${item.label || shortClass}</h4>
-                <p><strong>Clase:</strong> ${shortClass}</p>
-                <p><strong>Coords:</strong> ${lat.toFixed(5)}, ${lon.toFixed(5)}</p>
-                <p class="popup-uri">${item.entity}</p>
+                <h4 style="margin:0 0 6px 0">${item.label || shortClass}</h4>
+                <p style="margin:2px 0"><strong>Clase:</strong> ${shortClass}</p>
+                <p style="margin:2px 0"><strong>Coords:</strong> ${lat.toFixed(5)}, ${lon.toFixed(5)}</p>
+                <p style="margin:2px 0;font-size:10px;color:#888;word-break:break-all">${item.entity}</p>
                 <div style="display: flex; gap: 8px; margin-top: 10px;">
                     <button class="btn btn-primary btn-sm btn-view-explorer" style="padding: 4px 8px; font-size: 10px;">Explorar</button>
                     <button class="btn btn-secondary btn-sm btn-view-graph" style="padding: 4px 8px; font-size: 10px;">Grafo</button>
                 </div>
             `;
 
-            // Vincular eventos a botones del popup
             popupContent.querySelector('.btn-view-explorer').addEventListener('click', () => {
                 this.appState.triggerViewChange('explorer-view', { loadUri: item.entity });
             });
@@ -152,7 +213,6 @@ export class MapViewer {
                 this.appState.triggerViewChange('graph-view', { rootUri: item.entity });
             });
 
-            // Crear marcador de Leaflet
             const marker = L.marker([lat, lon], { icon: customIcon })
                 .bindPopup(popupContent)
                 .addTo(this.markersGroup);
@@ -165,21 +225,19 @@ export class MapViewer {
                 <div class="marker-title">${item.label || shortClass}</div>
                 <div class="marker-desc">${shortClass} | ${lat.toFixed(4)}, ${lon.toFixed(4)}</div>
             `;
-            
             li.addEventListener('click', () => {
                 this.map.setView([lat, lon], 16);
                 marker.openPopup();
             });
-
             this.markerListElement.appendChild(li);
         });
 
         this.markerCountElement.textContent = count;
         
         if (count === 0) {
-            this.markerListElement.innerHTML = '<li class="text-muted">Ninguna ubicación coincide con los filtros.</li>';
+            this.markerListElement.innerHTML = '<li class="text-muted">Ninguna ubicación coincide con los filtros activos.</li>';
         } else {
-            // Ajustar los límites del mapa para mostrar todos los marcadores cargados
+            // Ajustar los límites del mapa para mostrar todos los marcadores visibles
             try {
                 const group = L.featureGroup(Array.from(this.leafletMarkersMap.values()));
                 if (group.getBounds().isValid()) {
@@ -191,31 +249,35 @@ export class MapViewer {
         }
     }
 
+    /** Obtiene el nombre corto de una clase a partir de su URI completa */
+    getShortClass(fullTypeUri) {
+        if (!fullTypeUri) return 'Unknown';
+        return fullTypeUri.split('#').pop().split('/').pop() || 'Unknown';
+    }
+
     parseCoordinatesString(coordStr) {
         if (!coordStr) return null;
 
-        // Limpiar espacios adicionales
-        const cleanStr = coordStr.trim();
+        // Limpiar espacios y eliminar prefijo de sistema de referencia (<http://...>)
+        let cleanStr = coordStr.trim().replace(/<[^>]+>\s*/g, '').trim();
 
-        // Caso 1: Formato WKT POINT(lon lat) o POINT(lat lon)
-        // OVS e Inmontology suelen usar POINT(X Y) donde X=longitud e Y=latitud o viceversa.
-        // Asumimos que si el primer valor es menor que -50 (por ejemplo -57 La Plata) es longitud,
-        // y el segundo alrededor de -34 es latitud. Esto es crucial para colocarlo bien en Argentina.
+        // Caso 1: Formato WKT POINT(X Y)
+        // En GeoSPARQL estándar: POINT(lon lat), val1=lon, val2=lat
         const wktRegex = /POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/i;
         const match = cleanStr.match(wktRegex);
         if (match) {
             const val1 = parseFloat(match[1]);
             const val2 = parseFloat(match[2]);
             
-            // Lógica inteligente de detección de Lat/Lon para Argentina (-34 lat, -57 lon)
-            if (val1 < -50 && val2 > -40 && val2 < -30) {
-                // val1 es lon (-57), val2 es lat (-34)
+            // Detectar orden para Argentina (lat ~ -25 a -55, lon ~ -53 a -73)
+            if (val1 < -50 && val2 > -55 && val2 < -25) {
+                // val1=lon, val2=lat -> devolver [lat, lon]
                 return [val2, val1];
-            } else if (val2 < -50 && val1 > -40 && val1 < -30) {
-                // val2 es lon (-57), val1 es lat (-34)
+            } else if (val2 < -50 && val1 > -55 && val1 < -25) {
+                // val2=lon, val1=lat
                 return [val1, val2];
             }
-            // Fallback: Asumir Y=lat, X=lon
+            // Fallback WKT estándar: POINT(lon lat) -> [lat, lon]
             return [val2, val1];
         }
 
@@ -224,10 +286,8 @@ export class MapViewer {
         if (parts.length >= 2) {
             const val1 = parseFloat(parts[0]);
             const val2 = parseFloat(parts[1]);
-            
             if (!isNaN(val1) && !isNaN(val2)) {
-                // Lógica de detección de latitud/longitud
-                if (val1 < -50 && val2 > -40 && val2 < -30) {
+                if (val1 < -50 && val2 > -55 && val2 < -25) {
                     return [val2, val1];
                 }
                 return [val1, val2];
@@ -237,18 +297,7 @@ export class MapViewer {
         return null;
     }
 
-    getMarkerColorByClass(clsGroup) {
-        const colors = {
-            Apartment: '#9c27b0', // Morado
-            House: '#ff9800',     // Naranja
-            Land: '#4caf50',      // Verde
-            Store: '#00bcd4',     // Cyan
-            other: '#9e9e9e'      // Gris
-        };
-        return colors[clsGroup] || colors.other;
-    }
-
-    // Método para centrar el mapa y abrir popup de una entidad específica
+    /** Centra el mapa y abre el popup de una entidad específica por URI */
     highlightEntity(uri) {
         const marker = this.leafletMarkersMap.get(uri);
         if (marker) {
