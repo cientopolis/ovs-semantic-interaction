@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from typing import List, Dict, Any
+from pydantic import BaseModel
 from app.dependencies import get_graphdb_service
 from app.services.graphdb_service import GraphDBService
+from app.config import settings
 
 router = APIRouter(prefix="/repositories", tags=["Repositories"])
 
@@ -31,3 +33,15 @@ async def get_stats(repo_id: str, service: GraphDBService = Depends(get_graphdb_
         return stats
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+@router.post("/auth/login")
+async def admin_login(request: LoginRequest):
+    """Valida las credenciales de administrador y retorna éxito."""
+    if request.username == settings.ADMIN_USERNAME and request.password == settings.ADMIN_PASSWORD:
+        return {"status": "success", "role": "admin", "token": "ovs-admin-mock-token"}
+    else:
+        raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos")

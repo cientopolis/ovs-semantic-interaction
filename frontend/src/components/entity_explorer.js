@@ -1,8 +1,10 @@
+import { BaseComponent } from './base_component.js';
 import { executeSparqlQuery, getEntityRelations } from '../api.js';
 
-export class EntityExplorer {
+export class EntityExplorer extends BaseComponent {
     constructor(appState) {
-        this.appState = appState;
+        // Inicializar clase base con el ID de contenedor de la vista
+        super(appState, 'explorer-view');
         
         // Elementos de UI
         this.searchInput = document.getElementById('explorer-search-input');
@@ -16,6 +18,11 @@ export class EntityExplorer {
         
         this.outgoingTableBody = document.querySelector('#table-outgoing-relations tbody');
         this.incomingTableBody = document.querySelector('#table-incoming-relations tbody');
+        
+        // Registrar componentes para el modo desarrollo
+        this.registerDevComponent('#entityExplorer', 'Explorador de Entidades', this.query('.explorer-layout'));
+        this.registerDevComponent('#explorerSidebar', 'Barra Lateral del Explorador', this.query('.explorer-sidebar-card'));
+        this.registerDevComponent('#explorerDetails', 'Detalles de la Entidad', this.query('.explorer-details-card'));
         
         this.initEvents();
     }
@@ -32,7 +39,7 @@ export class EntityExplorer {
                 this.loadInstancesOfClass(selectedClass);
             }
         });
-
+        
         // Registrar callback en el estado para cuando cambia el repositorio
         this.appState.onRepositoryChanged((repoId) => {
             this.loadClasses();

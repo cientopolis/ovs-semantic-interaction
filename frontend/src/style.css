@@ -1,28 +1,48 @@
-/* Configuración Global y Variables de Diseño - Light Mode */
+/* Configuración Global y Variables de Diseño - Material Design 3 (M3) */
 :root {
-    --bg-base: #f1f5f9;
-    --bg-surface: rgba(255, 255, 255, 0.8);
-    --bg-surface-solid: #ffffff;
-    --bg-surface-hover: #f8fafc;
+    /* M3 System Colors (Light Mode) */
+    --md-sys-color-primary: #6750A4;
+    --md-sys-color-on-primary: #FFFFFF;
+    --md-sys-color-primary-container: #EADDFF;
+    --md-sys-color-on-primary-container: #21005D;
     
-    --border-color: rgba(99, 102, 241, 0.12);
-    --border-color-focus: rgba(99, 102, 241, 0.4);
+    --md-sys-color-secondary: #625B71;
+    --md-sys-color-on-secondary: #FFFFFF;
+    --md-sys-color-secondary-container: #E8DEF8;
     
-    --accent-primary: #6366f1;
-    --accent-secondary: #0ea5e9;
-    --accent-gradient: linear-gradient(135deg, #6366f1 0%, #0ea5e9 100%);
+    --md-sys-color-surface: #FEF7FF;
+    --md-sys-color-on-surface: #1D1B20;
+    --md-sys-color-surface-variant: #E7E0EC;
+    --md-sys-color-on-surface-variant: #49454F;
+    --md-sys-color-outline: #79747E;
+    --md-sys-color-background: #FEF7FF;
+    --md-sys-color-error: #B3261E;
     
-    --text-primary: #0f172a;
-    --text-secondary: #334155;
-    --text-muted: #64748b;
+    /* Mappings to OVS legacy variables */
+    --bg-base: var(--md-sys-color-background);
+    --bg-surface: var(--md-sys-color-surface);
+    --bg-surface-solid: #FFFFFF;
+    --bg-surface-hover: rgba(103, 80, 164, 0.08);
     
-    --font-primary: 'Outfit', sans-serif;
-    --font-secondary: 'Plus Jakarta Sans', sans-serif;
+    --border-color: var(--md-sys-color-outline);
+    --border-color-focus: var(--md-sys-color-primary);
     
-    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.08);
-    --shadow-glow: 0 0 15px rgba(99, 102, 241, 0.15);
+    --accent-primary: var(--md-sys-color-primary);
+    --accent-secondary: var(--md-sys-color-secondary);
+    --accent-gradient: linear-gradient(135deg, #6750A4 0%, #625B71 100%);
+    
+    --text-primary: var(--md-sys-color-on-surface);
+    --text-secondary: var(--md-sys-color-on-surface-variant);
+    --text-muted: #79747E;
+    
+    --font-primary: 'Outfit', 'Roboto', sans-serif;
+    --font-secondary: 'Roboto', 'Plus Jakarta Sans', sans-serif;
+    
+    /* M3 Elevation Shadows */
+    --shadow-sm: 0 1px 3px 1px rgba(0,0,0,0.15), 0 1px 2px 0 rgba(0,0,0,0.30);
+    --shadow-md: 0 2px 6px 2px rgba(0,0,0,0.15), 0 1px 2px 0 rgba(0,0,0,0.30);
+    --shadow-lg: 0 4px 8px 3px rgba(0,0,0,0.15), 0 1px 3px 0 rgba(0,0,0,0.30);
+    --shadow-glow: 0 0 12px rgba(103, 80, 164, 0.25);
 }
 
 /* Reset de Estilos */
@@ -1267,4 +1287,259 @@ body, html {
 
 .app-container.repo-inactive .view-panel:not(#dashboard-view) > *:not(.repo-lock-overlay):not(.view-header) {
     display: none !important;
+}
+
+/* Modo Desarrollo - Inspector de Componentes Visuales */
+.dev-mode-active [data-dev-id] {
+    position: relative !important;
+    outline: 2px dashed #b500fa !important;
+    cursor: help !important;
+    transition: outline-color 0.2s ease-in-out;
+}
+
+.dev-mode-active [data-dev-id]:hover {
+    outline: 2px solid #e040fb !important;
+    background-color: rgba(224, 64, 251, 0.04) !important;
+}
+
+/* Badge overlay flotante de identificación */
+.dev-mode-active [data-dev-id]::before {
+    content: attr(data-dev-id) " (" attr(data-dev-component) ")";
+    position: absolute;
+    top: -22px;
+    left: 2px;
+    background: #b500fa;
+    color: white;
+    font-family: 'Roboto', 'Outfit', sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 6px;
+    border-radius: 4px;
+    z-index: 9999;
+    pointer-events: none;
+    box-shadow: var(--shadow-sm);
+    white-space: nowrap;
+    opacity: 0.85;
+}
+
+/* Cambiar color de badge cuando se define un nombre personalizado */
+.dev-mode-active [data-dev-custom-name]::before {
+    content: attr(data-dev-id) " (" attr(data-dev-custom-name) ")";
+    background: #00e676;
+    color: #000000;
+}
+
+.dev-mode-active [data-dev-id]:hover::before {
+    opacity: 1;
+}
+
+/* Switch Toggle en la cabecera */
+.dev-mode-toggle-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-right: 16px;
+    padding: 6px 12px;
+    background-color: var(--md-sys-color-surface-variant);
+    border-radius: 100px;
+    border: 1px solid var(--border-color);
+}
+
+.md-switch-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--md-sys-color-on-surface-variant);
+    cursor: pointer;
+    user-select: none;
+}
+
+.md-switch-label .dev-icon {
+    font-size: 16px;
+    color: var(--md-sys-color-primary);
+}
+
+/* Switch básico compatible con Material */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 32px;
+    height: 18px;
+}
+
+.switch input { 
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #c4c4c4;
+    transition: .3s;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 12px;
+    width: 12px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .3s;
+}
+
+input:checked + .slider {
+    background-color: var(--md-sys-color-primary);
+}
+
+input:checked + .slider:before {
+    transform: translateX(14px);
+}
+
+.slider.round {
+    border-radius: 34px;
+}
+
+.slider.round:before {
+    border-radius: 50%;
+}
+
+/* Estilos de Diálogos M3 */
+.md-dialog-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(4px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+}
+
+.md-dialog-card {
+    background-color: var(--md-sys-color-surface);
+    border-radius: 28px;
+    padding: 24px;
+    max-width: 420px;
+    width: 90%;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--md-sys-color-surface-variant);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    animation: dialogAppear 0.2s cubic-bezier(0, 0, 0.2, 1);
+}
+
+@keyframes dialogAppear {
+    from {
+        opacity: 0;
+        transform: scale(0.9) translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.md-dialog-title {
+    font-family: var(--font-primary);
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--md-sys-color-on-surface);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+}
+
+.md-dialog-content {
+    font-size: 14px;
+    color: var(--md-sys-color-on-surface-variant);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.md-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.md-input-group label {
+    font-weight: 500;
+    font-size: 12px;
+    color: var(--md-sys-color-primary);
+}
+
+.md-text-field {
+    padding: 12px 16px;
+    border-radius: 12px;
+    border: 1px solid var(--md-sys-color-outline);
+    background: transparent;
+    color: var(--md-sys-color-on-surface);
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.md-text-field:focus {
+    border-color: var(--md-sys-color-primary);
+    box-shadow: 0 0 0 3px rgba(103, 80, 164, 0.15);
+}
+
+.md-dialog-subtext {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: 2px 0;
+    font-family: monospace;
+}
+
+.md-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.md-btn {
+    padding: 10px 24px;
+    border-radius: 100px;
+    font-size: 14px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s, box-shadow 0.2s;
+}
+
+.md-btn-text {
+    background: transparent;
+    color: var(--md-sys-color-primary);
+}
+
+.md-btn-text:hover {
+    background-color: rgba(103, 80, 164, 0.08);
+}
+
+.md-btn-filled {
+    background-color: var(--md-sys-color-primary);
+    color: var(--md-sys-color-on-primary);
+    box-shadow: var(--shadow-sm);
+}
+
+.md-btn-filled:hover {
+    background-color: #533d8a;
+    box-shadow: var(--shadow-md);
 }

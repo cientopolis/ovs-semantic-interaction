@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OVS Semantic Hub - Explorador de Grafos</title>
     
-    <!-- Fuentes de Google -->
+    <!-- Fuentes de Google (Outfit, Roboto y Material Symbols) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Roboto:wght@300;400;500;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
     
     <!-- FontAwesome para iconos -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
@@ -26,7 +26,7 @@
 <body>
     <div class="app-container">
         <!-- Panel Lateral (Sidebar) -->
-        <aside class="app-sidebar" id="app-sidebar-panel">
+        <aside class="app-sidebar" id="app-sidebar-panel" data-dev-component="Barra Lateral" data-dev-id="#sidebar">
             <div class="sidebar-header">
                 <div class="logo-container">
                     <i class="fa-solid fa-circle-nodes logo-icon"></i>
@@ -35,7 +35,7 @@
             </div>
             
             <!-- Estado de Conexión -->
-            <div class="connection-status-card" id="connection-status-container">
+            <div class="connection-status-card" id="connection-status-container" data-dev-component="Estado de Conexión" data-dev-id="#connectionStatus">
                 <div class="status-indicator">
                     <span class="status-dot dot-offline" id="connection-dot"></span>
                     <span class="status-label" id="connection-text">Desconectado</span>
@@ -47,7 +47,7 @@
             </div>
             
             <!-- Menú de Navegación -->
-            <nav class="sidebar-menu" id="sidebar-navigation-menu">
+            <nav class="sidebar-menu" id="sidebar-navigation-menu" data-dev-component="Menú de Navegación" data-dev-id="#navMenu">
                 <ul>
                     <li class="menu-item active" id="nav-btn-dashboard" data-target="dashboard-view">
                         <i class="fa-solid fa-chart-pie"></i>
@@ -83,17 +83,38 @@
         <!-- Área de Contenido Principal -->
         <main class="app-main-content" id="app-main-workspace">
             <!-- Encabezado superior -->
-            <header class="app-header">
+            <header class="app-header" data-dev-component="Cabecera Superior" data-dev-id="#header">
                 <div class="header-search-bar" style="visibility: hidden;">
                     <!-- Placeholder si se necesita una búsqueda global -->
                 </div>
                 <div class="header-actions">
+                    <!-- Interruptor de Modo Desarrollo -->
+                    <div class="dev-mode-toggle-container">
+                        <label class="md-switch-label" for="dev-mode-checkbox">
+                            <span class="material-symbols-outlined dev-icon">bug_report</span>
+                            <span class="dev-text-label">Modo Dev</span>
+                        </label>
+                        <label class="switch">
+                            <input type="checkbox" id="dev-mode-checkbox">
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+
                     <button class="btn btn-secondary" id="btn-refresh-connection" title="Refrescar conexión">
                         <i class="fa-solid fa-arrows-rotate"></i>
                     </button>
+                    
+                    <!-- Botón de Login/Logout -->
+                    <button class="btn btn-primary btn-sm" id="btn-login-admin">
+                        <i class="fa-solid fa-lock"></i> Acceso Admin
+                    </button>
+                    <button class="btn btn-secondary btn-sm" id="btn-logout-admin" style="display: none;">
+                        <i class="fa-solid fa-arrow-right-from-bracket"></i> Cerrar Sesión
+                    </button>
+
                     <div class="user-profile">
                         <i class="fa-solid fa-circle-user profile-icon"></i>
-                        <span class="user-name">Observatorio</span>
+                        <span class="user-name" id="header-user-name">Invitado</span>
                     </div>
                 </div>
             </header>
@@ -425,6 +446,57 @@ SELECT ?s ?p ?o WHERE {
         </main>
     </div>
     
+    
+    <!-- Diálogo Modal para Renombrar Componentes (Modo Desarrollo) -->
+    <div id="dev-rename-dialog" class="md-dialog-overlay" style="display: none;">
+        <div class="md-dialog-card">
+            <h3 class="md-dialog-title">
+                <span class="material-symbols-outlined">edit_note</span>
+                Renombrar Componente
+            </h3>
+            <div class="md-dialog-content">
+                <p>Asigne un nombre descriptivo o alias personalizado para facilitar la comunicación:</p>
+                <div class="md-input-group">
+                    <label for="dev-dialog-input-name">Nombre Personalizado:</label>
+                    <input type="text" id="dev-dialog-input-name" class="md-text-field" placeholder="Ej. #fileOptions (Opciones de Archivos)">
+                </div>
+                <p class="md-dialog-subtext">ID por defecto: <span id="dev-dialog-default-id"></span></p>
+                <p class="md-dialog-subtext">Nombre original: <span id="dev-dialog-default-name"></span></p>
+            </div>
+            <div class="md-dialog-actions">
+                <button class="md-btn md-btn-text" id="btn-dev-dialog-cancel">Cancelar</button>
+                <button class="md-btn md-btn-text" id="btn-dev-dialog-reset" style="color: var(--md-sys-color-error);">Restablecer</button>
+                <button class="md-btn md-btn-filled" id="btn-dev-dialog-save">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Diálogo Modal para Login de Administradores -->
+    <div id="admin-login-dialog" class="md-dialog-overlay" style="display: none;">
+        <div class="md-dialog-card">
+            <h3 class="md-dialog-title">
+                <span class="material-symbols-outlined">shield_person</span>
+                Acceso Administrador
+            </h3>
+            <div class="md-dialog-content">
+                <p>Ingrese sus credenciales de administrador para desbloquear los privilegios de configuración:</p>
+                <div class="md-input-group">
+                    <label for="admin-login-username">Usuario:</label>
+                    <input type="text" id="admin-login-username" class="md-text-field" placeholder="Nombre de usuario" value="admin">
+                </div>
+                <div class="md-input-group">
+                    <label for="admin-login-password">Contraseña:</label>
+                    <input type="password" id="admin-login-password" class="md-text-field" placeholder="Contraseña">
+                </div>
+                <div id="admin-login-error-msg" class="text-danger" style="display: none; font-size: 13px; margin-top: 4px;"></div>
+            </div>
+            <div class="md-dialog-actions">
+                <button class="md-btn md-btn-text" id="btn-admin-login-cancel">Cancelar</button>
+                <button class="md-btn md-btn-filled" id="btn-admin-login-submit">Ingresar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Script Principal -->
     <script type="module" src="/src/main.js"></script>
 </body>

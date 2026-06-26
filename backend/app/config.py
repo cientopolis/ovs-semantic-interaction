@@ -7,6 +7,10 @@ class Settings(BaseSettings):
     GRAPHDB_PASSWORD: str = "admin"
     GRAPHDB_DEFAULT_REPO: str = "test"
     
+    # Credenciales del Administrador de la Aplicación
+    ADMIN_USERNAME: str = "admin"
+    ADMIN_PASSWORD: str = "admin"
+    
     PORT: int = 8000
     HOST: str = "127.0.0.1"
     CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"

@@ -1,8 +1,10 @@
+import { BaseComponent } from './base_component.js';
 import { getEntityRelations } from '../api.js';
 
-export class GraphViewer {
+export class GraphViewer extends BaseComponent {
     constructor(appState) {
-        this.appState = appState;
+        // Inicializar clase base con el ID de contenedor de la vista
+        super(appState, 'graph-view');
         
         // Elementos de UI
         this.rootInput = document.getElementById('graph-root-uri');
@@ -16,6 +18,11 @@ export class GraphViewer {
         
         // Historial de nodos expandidos para evitar redundancia
         this.expandedNodes = new Set();
+        
+        // Registrar componentes para el modo desarrollo
+        this.registerDevComponent('#graphViewer', 'Visor de Relaciones', this.query('.graph-workspace-layout'));
+        this.registerDevComponent('#graphSidebar', 'Panel de Control de Red', this.query('.graph-sidebar'));
+        this.registerDevComponent('#graphCanvas', 'Lienzo de Grafo Interactivo', this.query('.graph-canvas-container'));
         
         this.initEvents();
     }

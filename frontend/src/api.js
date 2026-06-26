@@ -79,3 +79,18 @@ export async function getGeolocalizedEntities(repoId) {
     }
     return await response.json();
 }
+
+export async function loginAdmin(username, password) {
+    const response = await fetch(`${API_BASE}/repositories/auth/login`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
+    });
+    if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.detail || 'Fallo de inicio de sesión');
+    }
+    return await response.json();
+}

@@ -1,8 +1,12 @@
+import { BaseComponent } from './base_component.js';
 import { listRepositories, getRepositoryStats } from '../api.js';
 
-export class RepoSelector {
+export class RepoSelector extends BaseComponent {
     constructor(appState) {
-        this.appState = appState;
+        // Inicializar clase base con el contenedor de la tarjeta del selector
+        super(appState, 'select-repository');
+        
+        // Elementos de UI
         this.selectElement = document.getElementById('select-repository');
         this.connectButton = document.getElementById('btn-connect-repo');
         
@@ -11,13 +15,27 @@ export class RepoSelector {
         this.statsDetailsElement = document.getElementById('stats-summary-details');
         this.classesListElement = document.getElementById('dashboard-top-classes-list');
         
+        // Registrar componentes para el modo desarrollo
+        this.registerDevComponent('#repoSelector', 'Selector de Repositorio', document.querySelector('.card-repo-selector'));
+        this.registerDevComponent('#repoStats', 'Estadísticas del Grafo', document.querySelector('.card-stats-summary'));
+        this.registerDevComponent('#topClasses', 'Clases Principales', document.querySelector('.card-classes-chart'));
+        
         this.initEvents();
+        
+        // Registrar en el estado si cambia la autenticación
+        this.appState.onAuthChanged((role) => {
+            this.updateAuthPrivileges(role);
+        });
     }
 
     initEvents() {
-        // Habilitar botón de conexión cuando se selecciona un repositorio válido
+        // Habilitar botón de conexión cuando se selecciona un repositorio válido (solo admin)
         this.selectElement.addEventListener('change', () => {
-            this.connectButton.disabled = !this.selectElement.value;
+            if (this.appState.userRole === 'admin') {
+                this.connectButton.disabled = !this.selectElement.value;
+            } else {
+                this.connectButton.disabled = true;
+            }
         });
 
         // Manejar clic de conexión
@@ -145,6 +163,18 @@ export class RepoSelector {
             this.statsDetailsElement.innerHTML = `<p class="text-danger">No se pudieron cargar las estadísticas: ${error.message}</p>`;
             this.classesListElement.innerHTML = '<li class="text-muted">Error al cargar clases</li>';
             throw error;
+        }
+    }
+
+    updateAuthPrivileges(role) {
+        if (role === 'admin') {
+            this.connectButton.disabled = !this.selectElement.value;
+            this.connectButton.title = "Conectar repositorio seleccionado";
+            this.connectButton.innerHTML = "Conectar Repositorio";
+        } else {
+            this.connectButton.disabled = true;
+            this.connectButton.title = "Se requieren privilegios de administrador para conectar repositorios.";
+            this.connectButton.innerHTML = "Conectar (Solo Admin)";
         }
     }
 }

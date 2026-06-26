@@ -1,8 +1,10 @@
+import { BaseComponent } from './base_component.js';
 import { getGeolocalizedEntities } from '../api.js';
 
-export class MapViewer {
+export class MapViewer extends BaseComponent {
     constructor(appState) {
-        this.appState = appState;
+        // Inicializar clase base con el ID de contenedor de la vista
+        super(appState, 'map-view');
         
         // Elementos de UI
         this.canvasContainer = document.getElementById('map-leaflet-canvas');
@@ -16,6 +18,11 @@ export class MapViewer {
         this.allMarkersData = []; // Guardar datos cargados en memoria
         this.leafletMarkersMap = new Map(); // Mapeo URI -> Marker de Leaflet
         this.activeClasses = new Set(); // Clases actualmente visibles (filtro)
+        
+        // Registrar componentes para el modo desarrollo
+        this.registerDevComponent('#mapViewer', 'Explorador de Mapa', this.query('.map-workspace-layout'));
+        this.registerDevComponent('#mapSidebar', 'Filtros y Marcadores', this.query('.map-sidebar'));
+        this.registerDevComponent('#mapCanvas', 'Lienzo de Mapa Geográfico', this.query('.map-canvas-container'));
         
         this.initMap();
         this.initEvents();

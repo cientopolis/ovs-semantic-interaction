@@ -1,8 +1,10 @@
+import { BaseComponent } from './base_component.js';
 import { executeSparqlQuery } from '../api.js';
 
-export class SparqlEditor {
+export class SparqlEditor extends BaseComponent {
     constructor(appState) {
-        this.appState = appState;
+        // Inicializar clase base con el ID de contenedor de la vista
+        super(appState, 'sparql-view');
         
         // Elementos de UI
         this.textarea = document.getElementById('sparql-editor-textarea');
@@ -16,6 +18,11 @@ export class SparqlEditor {
         this.table = document.getElementById('sparql-results-table');
         
         this.lastResults = null;
+        
+        // Registrar componentes para el modo desarrollo
+        this.registerDevComponent('#sparqlEditor', 'Consola SPARQL', this.query('.sparql-console-layout'));
+        this.registerDevComponent('#sparqlInput', 'Editor de Entrada SPARQL', this.query('.sparql-input-card'));
+        this.registerDevComponent('#sparqlResults', 'Resultados de Consulta SPARQL', this.query('.sparql-results-card'));
         
         this.initTemplates();
         this.initEvents();
@@ -136,7 +143,6 @@ SELECT ?entidad ?clase ?coordenadas ?label WHERE {
             
             if (isUpdate) {
                 // Endpoint especial del backend para actualizaciones
-                // Pero este frontend asume en su mayoría consultas. Vamos a implementarlo de todos modos.
                 await executeSparqlUpdate(repoId, query);
                 this.metaElement.textContent = `Actualización completada exitosamente en ${((performance.now() - startTime) / 1000).toFixed(2)}s.`;
                 this.table.innerHTML = '<thead><tr><th>Estado</th></tr></thead><tbody><tr><td>Actualización ejecutada correctamente. Las tripletas fueron modificadas.</td></tr></tbody>';
