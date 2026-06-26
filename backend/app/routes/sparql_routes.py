@@ -77,3 +77,20 @@ async def get_graph_node(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@router.get("/graph/{repo_id}/bnode")
+async def get_graph_bnode(
+    repo_id: str,
+    parent_uri: str = Query(..., description="IRI del nodo padre que contiene el blank node"),
+    predicate_uri: str = Query(..., description="URI del predicado que conecta el padre con el blank node"),
+    service: GraphDBService = Depends(get_graphdb_service)
+):
+    """Expande un blank node navegando desde su nodo padre vía un predicado dado.
+    Los blank nodes no tienen URI propia en SPARQL; se acceden desde su contexto."""
+    try:
+        result = await service.get_bnode_relations(repo_id, parent_uri, predicate_uri)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+

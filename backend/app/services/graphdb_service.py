@@ -254,16 +254,18 @@ class GraphDBService:
 
     async def get_node_relations_by_iri(self, repo_id: str, entity_uri: str) -> Dict[str, Any]:
         """Obtiene las relaciones salientes de un nodo IRI para el inspector de grafo.
-        Retorna la lista de triples (sujeto=entity_uri, predicado, objeto) con metadatos de tipo."""
+        Retorna la lista de triples (sujeto=entity_uri, predicado, objeto) con metadatos de tipo.
+        Para blank nodes en el objeto, retorna también el ID interno para su posterior expansión."""
         query = f"""
         PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-        SELECT ?p ?o ?oLabel ?oType WHERE {{
+        SELECT ?p ?o ?oLabel ?oType ?oId WHERE {{
             <{entity_uri}> ?p ?o .
             BIND(
                 IF(isBlank(?o), "bnode",
                     IF(isLiteral(?o), "literal", "uri")
                 ) AS ?oType
             )
+            BIND(IF(isBlank(?o), str(?o), "") AS ?oId)
             OPTIONAL {{
                 ?o rdfs:label ?oLabel .
                 FILTER(lang(?oLabel) = "es" || lang(?oLabel) = "es-ar" || lang(?oLabel) = "")
@@ -274,11 +276,17 @@ class GraphDBService:
             result = await self.execute_query(repo_id, query)
             triples = []
             for b in result.get("results", {}).get("bindings", []):
+                obj_val = b["o"]["value"]
+                obj_type = b.get("oType", {}).get("value", "uri")
+                # GraphDB devuelve blank nodes sin prefijo (solo el ID interno como "nodeXYZ")
+                # Lo marcamos con el prefijo "bnode:" para identificarlos en el frontend
+                obj_id = b.get("oId", {}).get("value", "")
                 triples.append({
                     "predicate": b["p"]["value"],
                     "predicate_local": b["p"]["value"].split("#")[-1].split("/")[-1],
-                    "object": b["o"]["value"],
-                    "object_type": b.get("oType", {}).get("value", "uri"),
+                    "object": obj_val,
+                    "object_id": obj_id,  # ID interno del blank node (vacío si no es bnode)
+                    "object_type": obj_type,
                     "object_label": b.get("oLabel", {}).get("value"),
                     "object_datatype": b["o"].get("datatype"),
                     "object_lang": b["o"].get("xml:lang"),
@@ -286,3 +294,49 @@ class GraphDBService:
             return {"uri": entity_uri, "triples": triples}
         except Exception as e:
             raise Exception(f"Error al obtener relaciones del nodo: {str(e)}")
+
+    async def get_bnode_relations(self, repo_id: str, parent_uri: str, predicate_uri: str) -> Dict[str, Any]:
+        """Obtiene las relaciones salientes de un blank node navegando desde su padre.
+        Los blank nodes en SPARQL no tienen URI consultable directamente; se accede
+        a través del triple (parent, predicate, ?bnode) y luego se expande ?bnode."""
+        query = f"""
+        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+        SELECT ?o ?p2 ?o2 ?o2Label ?o2Type WHERE {{
+            <{parent_uri}> <{predicate_uri}> ?o .
+            FILTER(isBlank(?o))
+            ?o ?p2 ?o2 .
+            BIND(
+                IF(isBlank(?o2), "bnode",
+                    IF(isLiteral(?o2), "literal", "uri")
+                ) AS ?o2Type
+            )
+            OPTIONAL {{
+                ?o2 rdfs:label ?o2Label .
+                FILTER(lang(?o2Label) = "es" || lang(?o2Label) = "es-ar" || lang(?o2Label) = "")
+            }}
+        }} LIMIT 500
+        """
+        try:
+            result = await self.execute_query(repo_id, query)
+            # Agrupar por blank node ID (?o)
+            bnodes: Dict[str, Any] = {}
+            for b in result.get("results", {}).get("bindings", []):
+                bnode_id = b["o"]["value"]
+                if bnode_id not in bnodes:
+                    bnodes[bnode_id] = {"bnode_id": bnode_id, "triples": []}
+                bnodes[bnode_id]["triples"].append({
+                    "predicate": b["p2"]["value"],
+                    "predicate_local": b["p2"]["value"].split("#")[-1].split("/")[-1],
+                    "object": b["o2"]["value"],
+                    "object_type": b.get("o2Type", {}).get("value", "uri"),
+                    "object_label": b.get("o2Label", {}).get("value"),
+                    "object_datatype": b["o2"].get("datatype"),
+                    "object_lang": b["o2"].get("xml:lang"),
+                })
+            return {
+                "parent_uri": parent_uri,
+                "predicate_uri": predicate_uri,
+                "bnodes": list(bnodes.values())
+            }
+        except Exception as e:
+            raise Exception(f"Error al obtener relaciones del blank node: {str(e)}")
