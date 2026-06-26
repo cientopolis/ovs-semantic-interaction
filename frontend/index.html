@@ -759,6 +759,181 @@
             color: #f87171;
             border: 1px solid rgba(239, 68, 68, 0.3);
         }
+
+        /* --- USER MENU PREMIUM STYLES --- */
+        .user-menu-container {
+            position: relative;
+        }
+
+        .user-menu-btn {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            padding: 6px 12px;
+            border-radius: 100px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+
+        .user-menu-btn:hover {
+            background-color: var(--bg-surface-hover);
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 10px var(--accent-glow);
+        }
+
+        .user-menu-btn.active {
+            background-color: var(--bg-surface-solid);
+            border-color: var(--accent-primary);
+        }
+
+        .user-avatar {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--accent-gradient);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #000;
+            font-weight: 700;
+            font-size: 12px;
+        }
+
+        .user-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .user-chevron {
+            font-size: 10px;
+            color: var(--text-muted);
+            transition: transform 0.2s ease;
+        }
+
+        .user-menu-btn.active .user-chevron {
+            transform: rotate(180deg);
+            color: var(--accent-primary);
+        }
+
+        /* Dropdown Panel */
+        .user-dropdown-panel {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            width: 240px;
+            background-color: var(--bg-surface-solid);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            box-shadow: var(--shadow-lg);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transform-origin: top right;
+            animation: slideDownFade 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 2000;
+        }
+
+        @keyframes slideDownFade {
+            from {
+                opacity: 0;
+                transform: scale(0.95) translateY(-8px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        .dropdown-header-info {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+            background-color: rgba(0, 0, 0, 0.05);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .dropdown-info-text {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .dropdown-info-name {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .dropdown-info-role {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--accent-primary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .dropdown-menu-list {
+            list-style: none;
+            padding: 8px 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 16px;
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+
+        .dropdown-item:hover {
+            background-color: var(--bg-surface-hover);
+            color: var(--text-primary);
+        }
+
+        .dropdown-item i {
+            font-size: 14px;
+            color: var(--text-muted);
+            width: 16px;
+            text-align: center;
+            transition: color 0.2s ease;
+        }
+
+        .dropdown-item:hover i {
+            color: var(--accent-primary);
+        }
+
+        .dropdown-divider {
+            height: 1px;
+            background-color: var(--border-light);
+            margin: 6px 0;
+        }
+
+        .dropdown-item-danger {
+            color: #f87171;
+        }
+
+        .dropdown-item-danger:hover {
+            background-color: rgba(239, 68, 68, 0.08);
+            color: #f87171;
+        }
+
+        .dropdown-item-danger i {
+            color: #f87171;
+        }
     </style>
 </head>
 <body>
@@ -862,6 +1037,20 @@
             const [activeDialog, setActiveDialog] = React.useState(null); // { id, component, customName }
             const [customNames, setCustomNames] = React.useState({});
             const [dialogInput, setDialogInput] = React.useState('');
+            const [menuOpen, setMenuOpen] = React.useState(false);
+
+            // Close menu on clicking outside
+            React.useEffect(() => {
+                const closeMenu = () => setMenuOpen(false);
+                window.addEventListener('click', closeMenu);
+                return () => window.removeEventListener('click', closeMenu);
+            }, []);
+
+            const handleUserMenuClick = (e) => {
+                if (devMode) return; // Let inspector click handle it
+                e.stopPropagation();
+                setMenuOpen(!menuOpen);
+            };
 
             // Apply body class when devMode changes
             React.useEffect(() => {
@@ -1438,6 +1627,57 @@
                             >
                                 <i class="fa-solid fa-palette"></i>
                             </button>
+                        </div>
+                        
+                        <!-- User Menu Dropdown (Active to the right of #themeSelector) -->
+                        <div class="user-menu-container" ...${getDevProps('#menuUsuario', 'Menú de Usuario')}>
+                            <div 
+                                class="user-menu-btn ${menuOpen ? 'active' : ''}" 
+                                onClick=${handleUserMenuClick}
+                            >
+                                <div class="user-avatar">DT</div>
+                                <span class="user-name">Diego Torres</span>
+                                <i class="fa-solid fa-chevron-down user-chevron"></i>
+                            </div>
+
+                            ${menuOpen && html`
+                                <div class="user-dropdown-panel" onClick=${(e) => e.stopPropagation()}>
+                                    <div class="dropdown-header-info">
+                                        <div class="user-avatar" style=${{ width: '36px', height: '36px', fontSize: '14px' }}>DT</div>
+                                        <div class="dropdown-info-text">
+                                            <span class="dropdown-info-name">Diego Torres</span>
+                                            <span class="dropdown-info-role">Administrador</span>
+                                        </div>
+                                    </div>
+                                    <ul class="dropdown-menu-list">
+                                        <li>
+                                            <a class="dropdown-item" href="#profile" onClick=${() => setMenuOpen(false)}>
+                                                <i class="fa-regular fa-user"></i>
+                                                Mi Perfil
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" href="#settings" onClick=${() => setMenuOpen(false)}>
+                                                <i class="fa-solid fa-sliders"></i>
+                                                Configuración
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" href="#admin" onClick=${() => setMenuOpen(false)}>
+                                                <i class="fa-solid fa-shield-halved"></i>
+                                                Panel de Admin
+                                            </a>
+                                        </li>
+                                        <li class="dropdown-divider"></li>
+                                        <li>
+                                            <a class="dropdown-item dropdown-item-danger" href="#logout" onClick=${() => setMenuOpen(false)}>
+                                                <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                                                Cerrar Sesión
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            `}
                         </div>
                     </div>
                 </div>
