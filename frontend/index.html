@@ -538,6 +538,227 @@
             max-width: 320px;
             margin: 0;
         }
+
+        /* --- DEV INSPECTOR MODE CLASSES --- */
+        
+        /* Outline effect on inspectable elements when Dev Mode is active */
+        .dev-mode-active [data-dev-id] {
+            position: relative !important;
+            outline: 2px dashed #b500fa !important;
+            cursor: help !important;
+            transition: outline-color 0.2s ease;
+        }
+
+        .dev-mode-active [data-dev-id]:hover {
+            outline: 2px solid #e040fb !important;
+            background-color: rgba(224, 64, 251, 0.04) !important;
+        }
+
+        /* Floating identification badge on hover */
+        .dev-mode-active [data-dev-id]::before {
+            content: attr(data-dev-id) " (" attr(data-dev-component) ")";
+            position: absolute;
+            top: -22px;
+            left: 2px;
+            background: #b500fa;
+            color: white;
+            font-family: monospace;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 4px;
+            z-index: 9999;
+            pointer-events: none;
+            box-shadow: var(--shadow-sm);
+            white-space: nowrap;
+            opacity: 0.85;
+            transition: opacity 0.2s ease;
+        }
+
+        /* Custom Alias styling (Green badge) */
+        .dev-mode-active [data-dev-custom-name]::before {
+            content: attr(data-dev-id) " (" attr(data-dev-custom-name) ")";
+            background: #00e676;
+            color: #000000;
+        }
+
+        .dev-mode-active [data-dev-custom-name] {
+            outline: 2px dashed #00e676 !important;
+        }
+
+        .dev-mode-active [data-dev-custom-name]:hover {
+            outline: 2px solid #00e676 !important;
+            background-color: rgba(0, 230, 118, 0.04) !important;
+        }
+
+        .dev-mode-active [data-dev-id]:hover::before {
+            opacity: 1;
+        }
+
+        /* M3 switch styles for header */
+        .dev-mode-toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            background-color: var(--bg-surface);
+            border-radius: 100px;
+            border: 1px solid var(--border-color);
+        }
+
+        .md-switch-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .md-switch-label .dev-icon {
+            font-size: 16px;
+            color: var(--accent-primary);
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 36px;
+            height: 20px;
+        }
+
+        .switch input { 
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #555;
+            transition: .3s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 14px;
+            width: 14px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--accent-primary);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(16px);
+            background-color: #000;
+        }
+
+        /* Material Dialog Overlay */
+        .md-dialog-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 20000;
+        }
+
+        .md-dialog-card {
+            background-color: var(--bg-surface-solid);
+            border-radius: 24px;
+            padding: 24px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .md-dialog-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0;
+        }
+
+        .md-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .md-input-group label {
+            font-weight: 600;
+            font-size: 11px;
+            color: var(--accent-primary);
+            text-transform: uppercase;
+        }
+
+        .md-text-field {
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-base);
+            color: var(--text-primary);
+            font-size: 14px;
+            outline: none;
+        }
+
+        .md-dialog-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .md-btn {
+            padding: 8px 16px;
+            border-radius: 100px;
+            font-size: 13px;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+        }
+
+        .md-btn-text {
+            background: transparent;
+            color: var(--text-secondary);
+        }
+
+        .md-btn-filled {
+            background-color: var(--accent-primary);
+            color: #000;
+        }
+        
+        .md-btn-danger {
+            background-color: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
     </style>
 </head>
 <body>
@@ -635,6 +856,88 @@
             const [repositories, setRepositories] = React.useState([]);
             const [activeRepo, setActiveRepo] = React.useState(() => localStorage.getItem('activeRepository') || '');
             const [data, setData] = React.useState([]);
+            
+            // Dev Mode Inspector States
+            const [devMode, setDevMode] = React.useState(() => localStorage.getItem('devModeActive') === 'true');
+            const [activeDialog, setActiveDialog] = React.useState(null); // { id, component, customName }
+            const [customNames, setCustomNames] = React.useState({});
+            const [dialogInput, setDialogInput] = React.useState('');
+
+            // Apply body class when devMode changes
+            React.useEffect(() => {
+                if (devMode) {
+                    document.body.classList.add('dev-mode-active');
+                } else {
+                    document.body.classList.remove('dev-mode-active');
+                }
+                localStorage.setItem('devModeActive', devMode);
+            }, [devMode]);
+
+            // Load custom names from localStorage on mount
+            React.useEffect(() => {
+                const keys = Object.keys(localStorage);
+                const names = {};
+                keys.forEach(k => {
+                    if (k.startsWith('dev-name-')) {
+                        names[k.replace('dev-name-', '')] = localStorage.getItem(k);
+                    }
+                });
+                setCustomNames(names);
+            }, []);
+
+            // Intercept clicks on inspectable items
+            const handleInspectClick = (e, id, component) => {
+                if (!devMode) return;
+                
+                // Prevent trigger native clicks
+                e.preventDefault();
+                e.stopPropagation();
+
+                const currentVal = customNames[id] || '';
+                setActiveDialog({ id, component, customName: currentVal });
+                setDialogInput(currentVal);
+            };
+
+            const handleSaveAlias = () => {
+                if (!activeDialog) return;
+                const { id } = activeDialog;
+                
+                if (dialogInput.trim()) {
+                    localStorage.setItem(`dev-name-${id}`, dialogInput.trim());
+                    setCustomNames(prev => ({ ...prev, [id]: dialogInput.trim() }));
+                } else {
+                    localStorage.removeItem(`dev-name-${id}`);
+                    setCustomNames(prev => {
+                        const updated = { ...prev };
+                        delete updated[id];
+                        return updated;
+                    });
+                }
+                setActiveDialog(null);
+            };
+
+            const handleResetAlias = () => {
+                if (!activeDialog) return;
+                const { id } = activeDialog;
+                localStorage.removeItem(`dev-name-${id}`);
+                setCustomNames(prev => {
+                    const updated = { ...prev };
+                    delete updated[id];
+                    return updated;
+                });
+                setActiveDialog(null);
+            };
+
+            // Helper to return dev properties
+            const getDevProps = (id, component) => {
+                const customName = customNames[id];
+                return {
+                    'data-dev-id': id,
+                    'data-dev-component': component,
+                    'data-dev-custom-name': customName || undefined,
+                    onClick: (e) => handleInspectClick(e, id, component)
+                };
+            };
             
             // Map Layers Toggle State
             const [layers, setLayers] = React.useState({
@@ -1056,14 +1359,14 @@
 
             // Layout
             return html`
-                <div class="react-header">
+                <div class="react-header" ...${getDevProps('#reactHeader', 'Encabezado Principal')}>
                     <div class="header-left">
                         <div class="header-logo">
                             <i class="fa-solid fa-layer-group"></i>
                             <span>OVS GeoAnalytics</span>
                         </div>
                         
-                        <div class="repo-select-container">
+                        <div class="repo-select-container" ...${getDevProps('#repoSelectContainer', 'Selector de Repositorio')}>
                             <label>Repo:</label>
                             <select 
                                 class="repo-select" 
@@ -1075,7 +1378,7 @@
                         </div>
                     </div>
                     
-                    <div class="header-center">
+                    <div class="header-center" ...${getDevProps('#viewToggle', 'Selector de Vista')}>
                         <button 
                             class="view-toggle-btn ${view === 'map' ? 'active' : ''}" 
                             onClick=${() => setView('map')}
@@ -1093,11 +1396,27 @@
                     </div>
                     
                     <div class="header-right">
-                        <div class="badge-count">
+                        <div class="badge-count" ...${getDevProps('#recordCount', 'Contador de Registros')}>
                             ${sortedData.length} Registros
                         </div>
                         
-                        <div class="theme-selector">
+                        <div class="dev-mode-toggle-container">
+                            <label class="md-switch-label" htmlFor="dev-mode-checkbox">
+                                <i class="fa-solid fa-bug dev-icon"></i>
+                                <span>Modo Dev</span>
+                            </label>
+                            <label class="switch">
+                                <input 
+                                    type="checkbox" 
+                                    id="dev-mode-checkbox" 
+                                    checked=${devMode}
+                                    onChange=${(e) => setDevMode(e.target.checked)}
+                                />
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        
+                        <div class="theme-selector" ...${getDevProps('#themeSelector', 'Selector de Tema')}>
                             <button 
                                 class="theme-btn ${theme === 'dark' ? 'active' : ''}" 
                                 onClick=${() => setTheme('dark')}
@@ -1125,15 +1444,15 @@
                 
                 <div class="workspace-container">
                     <!-- Map Workspace Panel -->
-                    <div class="map-workspace" style=${{ display: view === 'map' ? 'block' : 'none' }}>
+                    <div class="map-workspace" style=${{ display: view === 'map' ? 'block' : 'none' }} ...${getDevProps('#mapWorkspace', 'Contenedor del Mapa')}>
                         <!-- Left Controls Overlays (Kepler Style) -->
-                        <div class="kepler-sidebar">
+                        <div class="kepler-sidebar" ...${getDevProps('#keplerSidebar', 'Barra Lateral (Capas y Filtros)')}>
                             <div class="kepler-sidebar-header">
                                 <h3><i class="fa-solid fa-sliders"></i> Capas y Filtros</h3>
                             </div>
                             
                             <div class="kepler-sidebar-body">
-                                <div class="control-section">
+                                <div class="control-section" ...${getDevProps('#visualLayersSection', 'Capas Visuales')}>
                                     <h4>Capas Visuales</h4>
                                     
                                     <label class="layer-toggle">
@@ -1182,7 +1501,7 @@
                                     </label>
                                 </div>
                                 
-                                <div class="control-section">
+                                <div class="control-section" ...${getDevProps('#attributeFiltersSection', 'Filtros de Atributo')}>
                                     <h4>Filtros de Atributo</h4>
                                     
                                     <div class="filter-group">
@@ -1221,13 +1540,13 @@
                         </div>
                         
                         <!-- Map Leaflet Canvas -->
-                        <div ref=${mapContainerRef} class="leaflet-container"></div>
+                        <div ref=${mapContainerRef} class="leaflet-container" ...${getDevProps('#leafletContainer', 'Lienzo del Mapa Leaflet')}></div>
                     </div>
                     
                     <!-- Table Workspace Panel -->
-                    <div class="table-workspace" style=${{ display: view === 'table' ? 'block' : 'none' }}>
-                        <div class="table-toolbar">
-                            <div class="search-wrapper">
+                    <div class="table-workspace" style=${{ display: view === 'table' ? 'block' : 'none' }} ...${getDevProps('#tableWorkspace', 'Contenedor de la Tabla')}>
+                        <div class="table-toolbar" ...${getDevProps('#tableToolbar', 'Barra de Herramientas')}>
+                            <div class="search-wrapper" ...${getDevProps('#tableSearch', 'Buscador de Tabla')}>
                                 <i class="fa-solid fa-magnifying-glass"></i>
                                 <input 
                                     type="text" 
@@ -1244,8 +1563,8 @@
                             </div>
                         </div>
                         
-                        <div class="grid-container">
-                            <table class="premium-grid">
+                        <div class="grid-container" ...${getDevProps('#tableGridContainer', 'Contenedor de la Grilla')}>
+                            <table class="premium-grid" ...${getDevProps('#premiumGrid', 'Grilla de Parcelas')}>
                                 <thead>
                                     <tr>
                                         <th onClick=${() => handleSort('id')}>ID ${sortField === 'id' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</th>
@@ -1320,6 +1639,48 @@
                             </table>
                         </div>
                     </div>
+
+                    <!-- Rename Modal Dialog -->
+                    ${activeDialog && html`
+                        <div class="md-dialog-overlay">
+                            <div class="md-dialog-card">
+                                <h3 class="md-dialog-title">
+                                    <i class="fa-solid fa-tags" style=${{ color: 'var(--accent-primary)' }}></i>
+                                    Renombrar Componente
+                                </h3>
+                                <div style=${{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                    <p style=${{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
+                                        Asigne un alias personalizado para facilitar la identificación de este elemento:
+                                    </p>
+                                    
+                                    <div class="md-input-group">
+                                        <label>Alias Personalizado:</label>
+                                        <input 
+                                            type="text" 
+                                            class="md-text-field" 
+                                            value=${dialogInput}
+                                            onChange=${(e) => setDialogInput(e.target.value)}
+                                            placeholder="Ej. #chartsCard (Sección Gráficos)"
+                                            autoFocus
+                                        />
+                                    </div>
+                                    
+                                    <div style=${{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                                        <div><strong>ID Original:</strong> ${activeDialog.id}</div>
+                                        <div><strong>Nombre original:</strong> ${activeDialog.component}</div>
+                                    </div>
+                                </div>
+
+                                <div class="md-dialog-actions">
+                                    <button class="md-btn md-btn-text" onClick=${() => setActiveDialog(null)}>Cancelar</button>
+                                    ${activeDialog.customName && html`
+                                        <button class="md-btn md-btn-danger" onClick=${handleResetAlias}>Restablecer</button>
+                                    `}
+                                    <button class="md-btn md-btn-filled" onClick=${handleSaveAlias}>Guardar</button>
+                                </div>
+                            </div>
+                        </div>
+                    `}
                 </div>
             `;
         }
