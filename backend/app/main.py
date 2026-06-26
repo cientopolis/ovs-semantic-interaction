@@ -58,3 +58,14 @@ def read_root():
         "message": "OVS Semantic API is running. (frontend/index.html no encontrado)",
         "docs_url": "/docs"
     }
+
+# Servir db-test.html para diagnóstico de conexión
+@app.get("/db-test")
+def read_db_test():
+    db_test_path = os.path.join(frontend_dir, "db-test.html")
+    if os.path.exists(db_test_path):
+        return FileResponse(db_test_path)
+    return {
+        "message": "OVS Semantic API is running. (frontend/db-test.html no encontrado)",
+        "docs_url": "/docs"
+    }

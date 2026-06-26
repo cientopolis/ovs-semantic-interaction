@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OVS Diagnóstico - Test de Conexión GraphDB</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    
+    <!-- React & ReactDOM (UMD - Production) -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    
+    <!-- HTM (Hyperscript Tagged Markup) -->
+    <script src="https://unpkg.com/htm@3.1.1/dist/htm.umd.js"></script>
+    
+    <!-- Estilos de la aplicación -->
+    <link rel="stylesheet" href="/src/style.css">
+    
+    <style>
+        body, html {
+            background-color: var(--bg-base);
+            color: var(--text-primary);
+            font-family: var(--font-primary);
+            width: 100vw;
+            height: 100vh;
+            overflow-y: auto;
+            margin: 0;
+            padding: 0;
+        }
+
+        .diagnose-container {
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .diagnose-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 20px;
+        }
+
+        .diagnose-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 24px;
+            font-weight: 700;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .diagnose-card {
+            background-color: var(--bg-surface);
+            backdrop-filter: blur(var(--glass-blur));
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: var(--card-shadow);
+            margin-bottom: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .status-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 100px;
+            font-size: 14px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-healthy {
+            background-color: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.1);
+        }
+
+        .status-unhealthy {
+            background-color: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.1);
+        }
+
+        .status-testing {
+            background-color: rgba(59, 130, 246, 0.15);
+            color: #60a5fa;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+        }
+
+        .metric-card {
+            background-color: var(--bg-surface-solid);
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .metric-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--bg-surface-hover);
+            color: var(--accent-primary);
+            font-size: 18px;
+        }
+
+        .metric-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .metric-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+        }
+
+        .metric-value {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .repo-item {
+            background-color: var(--bg-surface-solid);
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s ease;
+        }
+
+        .repo-item:hover {
+            border-color: var(--accent-primary);
+            transform: translateX(4px);
+        }
+
+        .repo-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .repo-name {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .repo-uri {
+            font-family: monospace;
+            font-size: 11px;
+            color: var(--text-muted);
+            word-break: break-all;
+        }
+
+        .repo-stat-badge {
+            background-color: var(--bg-surface-hover);
+            border: 1px solid var(--border-light);
+            padding: 6px 12px;
+            border-radius: 100px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .diagnose-console {
+            background-color: #050409;
+            border: 1px solid #1f1b33;
+            border-radius: 12px;
+            padding: 16px;
+            font-family: monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #d1d5db;
+            max-height: 250px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+
+        .log-info {
+            color: #38bdf8;
+        }
+
+        .log-success {
+            color: #34d399;
+        }
+
+        .log-error {
+            color: #f87171;
+            font-weight: bold;
+        }
+
+        .action-btn {
+            background-color: var(--accent-primary);
+            color: #000000;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 100px;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 14px var(--accent-glow);
+            transition: all 0.2s ease;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px var(--accent-glow);
+        }
+
+        .action-btn:active {
+            transform: translateY(0);
+        }
+
+        .action-btn:disabled {
+            background-color: var(--text-muted);
+            box-shadow: none;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 600;
+            transition: color 0.2s ease;
+        }
+
+        .back-link:hover {
+            color: var(--accent-primary);
+        }
+
+        .theme-selector {
+            display: flex;
+            background-color: var(--bg-surface-hover);
+            padding: 4px;
+            border-radius: 100px;
+            border: 1px solid var(--border-color);
+            gap: 2px;
+        }
+
+        .theme-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            color: var(--text-muted);
+            transition: all 0.2s ease;
+            font-size: 14px;
+        }
+
+        .theme-btn.active {
+            background-color: var(--bg-surface-solid);
+            color: var(--accent-primary);
+            box-shadow: var(--shadow-sm);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script>
+        const html = htm.bind(React.createElement);
+
+        function DiagnosticPage() {
+            const [theme, setTheme] = React.useState(() => localStorage.getItem('appTheme') || 'dark');
+            const [status, setStatus] = React.useState('testing'); // 'healthy' | 'unhealthy' | 'testing'
+            const [healthData, setHealthData] = React.useState(null);
+            const [repos, setRepos] = React.useState([]);
+            const [latency, setLatency] = React.useState(0);
+            const [logs, setLogs] = React.useState([]);
+            const [isRunning, setIsRunning] = React.useState(false);
+
+            React.useEffect(() => {
+                document.documentElement.setAttribute('data-theme', theme);
+                localStorage.setItem('appTheme', theme);
+            }, [theme]);
+
+            const addLog = (text, type = 'info') => {
+                const timestamp = new Date().toLocaleTimeString();
+                setLogs(prev => [...prev, { timestamp, text, type }]);
+            };
+
+            const runDiagnostic = async () => {
+                setIsRunning(true);
+                setStatus('testing');
+                setLogs([]);
+                addLog('Iniciando diagnóstico de conexión...', 'info');
+
+                const startTime = performance.now();
+                try {
+                    // Check Health
+                    addLog('Consultando endpoint de salud de la base de datos (/api/repositories/health)...', 'info');
+                    const healthRes = await fetch('/api/repositories/health');
+                    const health = await healthRes.json();
+                    
+                    const endTime = performance.now();
+                    const measuredLatency = Math.round(endTime - startTime);
+                    setLatency(measuredLatency);
+                    setHealthData(health);
+                    
+                    addLog(`Latencia del servidor backend: ${measuredLatency} ms`, 'success');
+
+                    if (health.status === 'healthy') {
+                        setStatus('healthy');
+                        addLog('Conexión con GraphDB exitosa. El servidor responde correctamente.', 'success');
+                        
+                        // List repositories
+                        addLog('Solicitando lista de repositorios disponibles (/api/repositories)...', 'info');
+                        const reposRes = await fetch('/api/repositories');
+                        const repoList = await reposRes.json();
+                        
+                        addLog(`Se encontraron ${repoList.length} repositorios en el servidor GraphDB.`, 'success');
+                        
+                        // Fetch stats for each repository
+                        const reposWithStats = [];
+                        for (const repo of repoList) {
+                            addLog(`Consultando estadísticas del repositorio: ${repo.id}...`, 'info');
+                            try {
+                                const statsRes = await fetch(`/api/repositories/${repo.id}/stats`);
+                                const stats = await statsRes.json();
+                                reposWithStats.push({
+                                    ...repo,
+                                    triples: stats.triples || 0,
+                                    classesCount: stats.classes?.length || 0
+                                });
+                                addLog(`Repositorio ${repo.id}: ${stats.triples ? stats.triples.toLocaleString() : 0} tripletas y ${stats.classes?.length || 0} clases principales.`, 'success');
+                            } catch (statsErr) {
+                                reposWithStats.push({ ...repo, triples: 'Error al consultar', classesCount: 0 });
+                                addLog(`Advertencia al obtener estadísticas de ${repo.id}: ${statsErr.message}`, 'error');
+                            }
+                        }
+                        setRepos(reposWithStats);
+                    } else {
+                        setStatus('unhealthy');
+                        addLog(`La conexión falló: ${health.detail || 'Sin detalles adicionales'}`, 'error');
+                        setRepos([]);
+                    }
+                } catch (err) {
+                    setStatus('unhealthy');
+                    setLatency(0);
+                    addLog(`Error crítico de red/conexión: ${err.message}`, 'error');
+                    setRepos([]);
+                } finally {
+                    setIsRunning(false);
+                    addLog('Diagnóstico finalizado.', 'info');
+                }
+            };
+
+            React.useEffect(() => {
+                runDiagnostic();
+            }, []);
+
+            return html`
+                <div class="diagnose-container">
+                    <div class="diagnose-header">
+                        <a href="/" class="back-link">
+                            <i class="fa-solid fa-arrow-left"></i> Volver al Portal Inmobiliario
+                        </a>
+                        
+                        <div class="theme-selector">
+                            <button 
+                                class="theme-btn ${theme === 'dark' ? 'active' : ''}" 
+                                onClick=${() => setTheme('dark')}
+                                title="Tema Oscuro"
+                            >
+                                <i class="fa-solid fa-moon"></i>
+                            </button>
+                            <button 
+                                class="theme-btn ${theme === 'light' ? 'active' : ''}" 
+                                onClick=${() => setTheme('light')}
+                                title="Tema Claro"
+                            >
+                                <i class="fa-solid fa-sun"></i>
+                            </button>
+                            <button 
+                                class="theme-btn ${theme === 'pastel' ? 'active' : ''}" 
+                                onClick=${() => setTheme('pastel')}
+                                title="Tema Pastel"
+                            >
+                                <i class="fa-solid fa-palette"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="diagnose-header" style=${{ borderBottom: 'none', marginBottom: '10px' }}>
+                        <div class="diagnose-title">
+                            <i class="fa-solid fa-gauge-high"></i>
+                            <span>Consola de Diagnóstico de Base de Datos</span>
+                        </div>
+                        <button 
+                            class="action-btn" 
+                            disabled=${isRunning} 
+                            onClick=${runDiagnostic}
+                        >
+                            <i class="fa-solid ${isRunning ? 'fa-spinner fa-spin' : 'fa-arrows-rotate'}"></i>
+                            ${isRunning ? 'Ejecutando...' : 'Ejecutar Diagnóstico'}
+                        </button>
+                    </div>
+
+                    <!-- Status Display -->
+                    <div class="diagnose-card">
+                        <div class="status-header-row">
+                            <span style=${{ fontSize: '15px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                                Conectividad y Salud del Servidor
+                            </span>
+                            <div class="status-badge ${status === 'healthy' ? 'status-healthy' : (status === 'testing' ? 'status-testing' : 'status-unhealthy')}">
+                                <i class="fa-solid ${status === 'healthy' ? 'fa-circle-check' : (status === 'testing' ? 'fa-circle-notch fa-spin' : 'fa-circle-exclamation')}"></i>
+                                ${status === 'healthy' ? 'Saludable (OK)' : (status === 'testing' ? 'Verificando...' : 'Desconectado / Error')}
+                            </div>
+                        </div>
+
+                        <div class="metrics-grid">
+                            <div class="metric-card">
+                                <div class="metric-icon"><i class="fa-solid fa-network-wired"></i></div>
+                                <div class="metric-info">
+                                    <span class="metric-label">Latencia del Servidor</span>
+                                    <span class="metric-value">${latency > 0 ? `${latency} ms` : '--'}</span>
+                                </div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-icon"><i class="fa-solid fa-database"></i></div>
+                                <div class="metric-info">
+                                    <span class="metric-label">Motor de Base de Datos</span>
+                                    <span class="metric-value">${healthData?.graphdb === 'connected' ? 'GraphDB (Conectado)' : 'Desconectado'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Repositories List -->
+                    <div class="diagnose-card">
+                        <span style=${{ fontSize: '15px', fontWeight: 600, color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-light)', paddingBottom: '8px' }}>
+                            Repositorios Activos en GraphDB
+                        </span>
+                        
+                        ${repos.length === 0 ? html`
+                            <div style=${{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)', fontSize: '13px' }}>
+                                ${status === 'testing' ? 'Buscando repositorios...' : 'No hay repositorios disponibles o el servidor está caído.'}
+                            </div>
+                        ` : html`
+                            <div style=${{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                ${repos.map(repo => html`
+                                    <div class="repo-item" key=${repo.id}>
+                                        <div class="repo-meta">
+                                            <span class="repo-name">
+                                                <i class="fa-solid fa-folder-open" style=${{ color: 'var(--accent-primary)', marginRight: '8px' }}></i>
+                                                ${repo.title || repo.id} ${repo.readable ? html`<small style=${{ marginLeft: '8px', color: '#10b981' }}>(Lectura)</small>` : ''}
+                                            </span>
+                                            <span class="repo-uri">${repo.uri}</span>
+                                        </div>
+                                        <span class="repo-stat-badge">
+                                            ${typeof repo.triples === 'number' ? `${repo.triples.toLocaleString()} tripletas` : repo.triples}
+                                        </span>
+                                    </div>
+                                `)}
+                            </div>
+                        `}
+                    </div>
+
+                    <!-- Live Logs Console -->
+                    <div class="diagnose-card">
+                        <span style=${{ fontSize: '15px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                            Consola detallada de diagnóstico (Logs de Ejecución)
+                        </span>
+                        <div class="diagnose-console">
+                            ${logs.map((log, idx) => html`
+                                <div key=${idx}>
+                                    [${log.timestamp}] <span class="log-${log.type}">${log.text}</span>
+                                </div>
+                            `)}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(html`<${DiagnosticPage} />`);
+    </script>
+</body>
+</html>
