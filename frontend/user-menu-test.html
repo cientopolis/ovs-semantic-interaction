@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OVS Test - Menú Desplegable de Usuario</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    
+    <!-- React & ReactDOM (UMD - Production) -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    
+    <!-- HTM (Hyperscript Tagged Markup) -->
+    <script src="https://unpkg.com/htm@3.1.1/dist/htm.umd.js"></script>
+    
+    <!-- Estilos base e importación de la aplicación -->
+    <link rel="stylesheet" href="/src/style.css">
+    
+    <style>
+        body, html {
+            background-color: var(--bg-base);
+            color: var(--text-primary);
+            font-family: var(--font-primary);
+            width: 100vw;
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .test-layout {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+        }
+
+        .test-header {
+            height: 70px;
+            padding: 0 24px;
+            background-color: var(--header-bg);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 1000;
+            position: relative;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        /* theme selector replica */
+        .theme-selector {
+            display: flex;
+            background-color: var(--bg-surface-hover);
+            padding: 4px;
+            border-radius: 100px;
+            border: 1px solid var(--border-color);
+            gap: 2px;
+        }
+
+        .theme-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            color: var(--text-muted);
+            transition: all 0.2s ease;
+            font-size: 14px;
+        }
+
+        .theme-btn.active {
+            background-color: var(--bg-surface-solid);
+            color: var(--accent-primary);
+            box-shadow: var(--shadow-sm);
+        }
+
+        /* --- USER MENU PREMIUM STYLES --- */
+        .user-menu-container {
+            position: relative;
+        }
+
+        .user-menu-btn {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            padding: 6px 12px;
+            border-radius: 100px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+
+        .user-menu-btn:hover {
+            background-color: var(--bg-surface-hover);
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 10px var(--accent-glow);
+        }
+
+        .user-menu-btn.active {
+            background-color: var(--bg-surface-solid);
+            border-color: var(--accent-primary);
+        }
+
+        .user-avatar {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--accent-gradient);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #000;
+            font-weight: 700;
+            font-size: 12px;
+        }
+
+        .user-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .user-chevron {
+            font-size: 10px;
+            color: var(--text-muted);
+            transition: transform 0.2s ease;
+        }
+
+        .user-menu-btn.active .user-chevron {
+            transform: rotate(180deg);
+            color: var(--accent-primary);
+        }
+
+        /* Dropdown Panel */
+        .user-dropdown-panel {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            width: 240px;
+            background-color: var(--bg-surface-solid);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            box-shadow: var(--shadow-lg);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transform-origin: top right;
+            animation: slideDownFade 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 2000;
+        }
+
+        @keyframes slideDownFade {
+            from {
+                opacity: 0;
+                transform: scale(0.95) translateY(-8px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        .dropdown-header-info {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+            background-color: rgba(0, 0, 0, 0.05);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .dropdown-info-text {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .dropdown-info-name {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .dropdown-info-role {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--accent-primary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .dropdown-menu-list {
+            list-style: none;
+            padding: 8px 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 16px;
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+
+        .dropdown-item:hover {
+            background-color: var(--bg-surface-hover);
+            color: var(--text-primary);
+        }
+
+        .dropdown-item i {
+            font-size: 14px;
+            color: var(--text-muted);
+            width: 16px;
+            text-align: center;
+            transition: color 0.2s ease;
+        }
+
+        .dropdown-item:hover i {
+            color: var(--accent-primary);
+        }
+
+        .dropdown-divider {
+            height: 1px;
+            background-color: var(--border-light);
+            margin: 6px 0;
+        }
+
+        .dropdown-item-danger {
+            color: #f87171;
+        }
+
+        .dropdown-item-danger:hover {
+            background-color: rgba(239, 68, 68, 0.08);
+            color: #f87171;
+        }
+
+        .dropdown-item-danger i {
+            color: #f87171;
+        }
+
+        .test-content {
+            flex: 1;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            text-align: center;
+        }
+
+        .test-card {
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            padding: 40px;
+            border-radius: 24px;
+            max-width: 500px;
+            box-shadow: var(--card-shadow);
+        }
+
+        /* --- DEV INSPECTOR MODE CLASSES --- */
+        .dev-mode-active [data-dev-id] {
+            position: relative !important;
+            outline: 2px dashed #b500fa !important;
+            cursor: help !important;
+            transition: outline-color 0.2s ease;
+        }
+
+        .dev-mode-active [data-dev-id]:hover {
+            outline: 2px solid #e040fb !important;
+            background-color: rgba(224, 64, 251, 0.04) !important;
+        }
+
+        .dev-mode-active [data-dev-id]::before {
+            content: attr(data-dev-id) " (" attr(data-dev-component) ")";
+            position: absolute;
+            top: -22px;
+            left: 2px;
+            background: #b500fa;
+            color: white;
+            font-family: monospace;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 4px;
+            z-index: 9999;
+            pointer-events: none;
+            box-shadow: var(--shadow-sm);
+            white-space: nowrap;
+            opacity: 0.85;
+            transition: opacity 0.2s ease;
+        }
+
+        .dev-mode-active [data-dev-custom-name]::before {
+            content: attr(data-dev-id) " (" attr(data-dev-custom-name) ")";
+            background: #00e676;
+            color: #000000;
+        }
+
+        .dev-mode-active [data-dev-custom-name] {
+            outline: 2px dashed #00e676 !important;
+        }
+
+        .dev-mode-active [data-dev-custom-name]:hover {
+            outline: 2px solid #00e676 !important;
+            background-color: rgba(0, 230, 118, 0.04) !important;
+        }
+
+        .dev-mode-active [data-dev-id]:hover::before {
+            opacity: 1;
+        }
+
+        .dev-mode-toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            background-color: var(--bg-surface);
+            border-radius: 100px;
+            border: 1px solid var(--border-color);
+        }
+
+        .md-switch-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .md-switch-label .dev-icon {
+            font-size: 16px;
+            color: var(--accent-primary);
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 36px;
+            height: 20px;
+        }
+
+        .switch input { 
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #555;
+            transition: .3s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 14px;
+            width: 14px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--accent-primary);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(16px);
+            background-color: #000;
+        }
+
+        /* Material Dialog Overlay */
+        .md-dialog-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 20000;
+        }
+
+        .md-dialog-card {
+            background-color: var(--bg-surface-solid);
+            border-radius: 24px;
+            padding: 24px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .md-dialog-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0;
+        }
+
+        .md-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .md-input-group label {
+            font-weight: 600;
+            font-size: 11px;
+            color: var(--accent-primary);
+            text-transform: uppercase;
+        }
+
+        .md-text-field {
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-base);
+            color: var(--text-primary);
+            font-size: 14px;
+            outline: none;
+        }
+
+        .md-dialog-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .md-btn {
+            padding: 8px 16px;
+            border-radius: 100px;
+            font-size: 13px;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+        }
+
+        .md-btn-text {
+            background: transparent;
+            color: var(--text-secondary);
+        }
+
+        .md-btn-filled {
+            background-color: var(--accent-primary);
+            color: #000;
+        }
+        
+        .md-btn-danger {
+            background-color: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script>
+        const html = htm.bind(React.createElement);
+
+        function UserMenuTest() {
+            const [theme, setTheme] = React.useState('dark');
+            const [devMode, setDevMode] = React.useState(() => localStorage.getItem('devModeActive') === 'true');
+            const [menuOpen, setMenuOpen] = React.useState(false);
+            const [activeDialog, setActiveDialog] = React.useState(null); // { id, component, customName }
+            const [customNames, setCustomNames] = React.useState({});
+            const [dialogInput, setDialogInput] = React.useState('');
+
+            // Apply body class when devMode changes
+            React.useEffect(() => {
+                if (devMode) {
+                    document.body.classList.add('dev-mode-active');
+                } else {
+                    document.body.classList.remove('dev-mode-active');
+                }
+                localStorage.setItem('devModeActive', devMode);
+            }, [devMode]);
+
+            // Apply theme changes to document Element
+            React.useEffect(() => {
+                document.documentElement.setAttribute('data-theme', theme);
+            }, [theme]);
+
+            // Close menu on clicking outside
+            React.useEffect(() => {
+                const closeMenu = () => setMenuOpen(false);
+                window.addEventListener('click', closeMenu);
+                return () => window.removeEventListener('click', closeMenu);
+            }, []);
+
+            // Load custom names from localStorage on mount
+            React.useEffect(() => {
+                const keys = Object.keys(localStorage);
+                const names = {};
+                keys.forEach(k => {
+                    if (k.startsWith('dev-name-')) {
+                        names[k.replace('dev-name-', '')] = localStorage.getItem(k);
+                    }
+                });
+                setCustomNames(names);
+            }, []);
+
+            // Intercept clicks on inspectable items
+            const handleInspectClick = (e, id, component) => {
+                if (!devMode) return;
+                
+                e.preventDefault();
+                e.stopPropagation();
+
+                const currentVal = customNames[id] || '';
+                setActiveDialog({ id, component, customName: currentVal });
+                setDialogInput(currentVal);
+            };
+
+            const handleSaveAlias = () => {
+                if (!activeDialog) return;
+                const { id } = activeDialog;
+                
+                if (dialogInput.trim()) {
+                    localStorage.setItem(`dev-name-${id}`, dialogInput.trim());
+                    setCustomNames(prev => ({ ...prev, [id]: dialogInput.trim() }));
+                } else {
+                    localStorage.removeItem(`dev-name-${id}`);
+                    setCustomNames(prev => {
+                        const updated = { ...prev };
+                        delete updated[id];
+                        return updated;
+                    });
+                }
+                setActiveDialog(null);
+            };
+
+            const handleResetAlias = () => {
+                if (!activeDialog) return;
+                const { id } = activeDialog;
+                localStorage.removeItem(`dev-name-${id}`);
+                setCustomNames(prev => {
+                    const updated = { ...prev };
+                    delete updated[id];
+                    return updated;
+                });
+                setActiveDialog(null);
+            };
+
+            // Helper to return dev properties
+            const getDevProps = (id, component) => {
+                const customName = customNames[id];
+                return {
+                    'data-dev-id': id,
+                    'data-dev-component': component,
+                    'data-dev-custom-name': customName || undefined,
+                    onClick: (e) => handleInspectClick(e, id, component)
+                };
+            };
+
+            const handleUserMenuClick = (e) => {
+                if (devMode) return; // Let inspector click handle it
+                e.stopPropagation();
+                setMenuOpen(!menuOpen);
+            };
+
+            return html`
+                <div class="test-layout">
+                    <!-- Header -->
+                    <header class="test-header" ...${getDevProps('#testHeader', 'Encabezado Principal')}>
+                        <div style=${{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <i class="fa-solid fa-layer-group" style=${{ color: 'var(--accent-primary)', fontSize: '20px' }}></i>
+                            <span style=${{ fontWeight: 700, fontSize: '18px' }}>OVS User Menu Test</span>
+                        </div>
+                        
+                        <div class="header-right">
+                            <!-- Dev Mode Toggle -->
+                            <div class="dev-mode-toggle-container" onClick=${(e) => e.stopPropagation()}>
+                                <label class="md-switch-label" htmlFor="dev-mode-checkbox">
+                                    <i class="fa-solid fa-bug dev-icon"></i>
+                                    <span>Modo Dev</span>
+                                </label>
+                                <label class="switch">
+                                    <input 
+                                        type="checkbox" 
+                                        id="dev-mode-checkbox" 
+                                        checked=${devMode}
+                                        onChange=${(e) => setDevMode(e.target.checked)}
+                                    />
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+
+                            <!-- Theme Selector -->
+                            <div class="theme-selector" ...${getDevProps('#themeSelector', 'Selector de Tema')} onClick=${(e) => e.stopPropagation()}>
+                                <button 
+                                    class="theme-btn ${theme === 'dark' ? 'active' : ''}" 
+                                    onClick=${() => setTheme('dark')}
+                                >
+                                    <i class="fa-solid fa-moon"></i>
+                                </button>
+                                <button 
+                                    class="theme-btn ${theme === 'light' ? 'active' : ''}" 
+                                    onClick=${() => setTheme('light')}
+                                >
+                                    <i class="fa-solid fa-sun"></i>
+                                </button>
+                            </div>
+
+                            <!-- User Menu Dropdown (Active to the right of #themeSelector) -->
+                            <div class="user-menu-container" ...${getDevProps('#menuUsuario', 'Menú de Usuario')}>
+                                <div 
+                                    class="user-menu-btn ${menuOpen ? 'active' : ''}" 
+                                    onClick=${handleUserMenuClick}
+                                >
+                                    <div class="user-avatar">DT</div>
+                                    <span class="user-name">Diego Torres</span>
+                                    <i class="fa-solid fa-chevron-down user-chevron"></i>
+                                </div>
+
+                                ${menuOpen && html`
+                                    <div class="user-dropdown-panel" onClick=${(e) => e.stopPropagation()}>
+                                        <div class="dropdown-header-info">
+                                            <div class="user-avatar" style=${{ width: '36px', height: '36px', fontSize: '14px' }}>DT</div>
+                                            <div class="dropdown-info-text">
+                                                <span class="dropdown-info-name">Diego Torres</span>
+                                                <span class="dropdown-info-role">Administrador</span>
+                                            </div>
+                                        </div>
+                                        <ul class="dropdown-menu-list">
+                                            <li>
+                                                <a class="dropdown-item" href="#profile" onClick=${() => setMenuOpen(false)}>
+                                                    <i class="fa-regular fa-user"></i>
+                                                    Mi Perfil
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" href="#settings" onClick=${() => setMenuOpen(false)}>
+                                                    <i class="fa-solid fa-sliders"></i>
+                                                    Configuración
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" href="#admin" onClick=${() => setMenuOpen(false)}>
+                                                    <i class="fa-solid fa-shield-halved"></i>
+                                                    Panel de Admin
+                                                </a>
+                                            </li>
+                                            <li class="dropdown-divider"></li>
+                                            <li>
+                                                <a class="dropdown-item dropdown-item-danger" href="#logout" onClick=${() => setMenuOpen(false)}>
+                                                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                                                    Cerrar Sesión
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                `}
+                            </div>
+                        </div>
+                    </header>
+
+                    <!-- Work Space Content -->
+                    <main class="test-content">
+                        <div class="test-card" ...${getDevProps('#infoCard', 'Tarjeta de Información')}>
+                            <h2>Prueba de Menú de Usuario</h2>
+                            <p style=${{ color: 'var(--text-secondary)', lineHeight: '1.6' }}>
+                                En esta pantalla de prueba independiente se valida que el menú desplegable <code>#menuUsuario</code> se posicione correctamente a la derecha de <code>#themeSelector</code>, que se despliegue hacia abajo con una animación premium y que se integre correctamente con el <strong>Modo Dev</strong>.
+                            </p>
+                            <div style=${{ marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                                <button class="md-btn md-btn-filled" onClick=${() => setMenuOpen(!menuOpen)}>
+                                    <i class="fa-solid fa-user-gear" style=${{ marginRight: '8px' }}></i> Abrir Menú
+                                </button>
+                            </div>
+                        </div>
+                    </main>
+
+                    <!-- Rename Modal Dialog -->
+                    ${activeDialog && html`
+                        <div class="md-dialog-overlay">
+                            <div class="md-dialog-card">
+                                <h3 class="md-dialog-title">
+                                    <i class="fa-solid fa-tags" style=${{ color: 'var(--accent-primary)' }}></i>
+                                    Renombrar Componente
+                                </h3>
+                                <div style=${{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                    <p style=${{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
+                                        Asigne un alias personalizado para facilitar la identificación de este elemento:
+                                    </p>
+                                    
+                                    <div class="md-input-group">
+                                        <label>Alias Personalizado:</label>
+                                        <input 
+                                            type="text" 
+                                            class="md-text-field" 
+                                            value=${dialogInput}
+                                            onChange=${(e) => setDialogInput(e.target.value)}
+                                            placeholder="Ej. #menuUsuario (Acceso Perfil)"
+                                            autoFocus
+                                        />
+                                    </div>
+                                    
+                                    <div style=${{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                                        <div><strong>ID Original:</strong> ${activeDialog.id}</div>
+                                        <div><strong>Nombre original:</strong> ${activeDialog.component}</div>
+                                    </div>
+                                </div>
+
+                                <div class="md-dialog-actions">
+                                    <button class="md-btn md-btn-text" onClick=${() => setActiveDialog(null)}>Cancelar</button>
+                                    ${activeDialog.customName && html`
+                                        <button class="md-btn md-btn-danger" onClick=${handleResetAlias}>Restablecer</button>
+                                    `}
+                                    <button class="md-btn md-btn-filled" onClick=${handleSaveAlias}>Guardar</button>
+                                </div>
+                            </div>
+                        </div>
+                    `}
+                </div>
+            `;
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(html`<${UserMenuTest} />`);
+    </script>
+</body>
+</html>

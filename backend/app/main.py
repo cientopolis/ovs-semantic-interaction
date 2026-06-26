@@ -80,3 +80,14 @@ def read_dev_inspector_test():
         "message": "OVS Semantic API is running. (frontend/dev-inspector-test.html no encontrado)",
         "docs_url": "/docs"
     }
+
+# Servir user-menu-test.html para pruebas de menú desplegable de usuario
+@app.get("/user-menu-test")
+def read_user_menu_test():
+    user_menu_test_path = os.path.join(frontend_dir, "user-menu-test.html")
+    if os.path.exists(user_menu_test_path):
+        return FileResponse(user_menu_test_path)
+    return {
+        "message": "OVS Semantic API is running. (frontend/user-menu-test.html no encontrado)",
+        "docs_url": "/docs"
+    }
