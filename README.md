@@ -211,6 +211,23 @@ En [`frontend/src/components/map_viewer.js`](frontend/src/components/map_viewer.
 
 ---
 
+## Hitos y Versiones (Milestones)
+
+### 🚀 Hito v2.0.0 — Migración a React GIS Dashboard (Kepler.gl + Carto)
+Se ha migrado la interfaz de usuario de componentes vanilla a una aplicación **React interactiva de una sola página** optimizada para el análisis espacial y la conexión dinámica con GraphDB:
+- **Navegación Toggle Dual (Estilo Carto)**: Alternador dinámico en la cabecera entre vista de Mapa y vista de Tabla de alta densidad.
+- **Sincronización Bidireccional**: Edición Excel-style (doble clic) en línea en la grilla que actualiza las capas del mapa de manera instantánea.
+- **Capas Visuales Avanzadas (Estilo Kepler.gl)**: Control de capas interactivo que permite activar:
+  - Capa de puntos/marcadores (coloreados por destino).
+  - Capa de mapa de calor de intensidad.
+  - Grilla de agregación hexagonal (Hexbins) por densidad espacial.
+  - Coropletas de barrios basadas en el valor promedio de suelo.
+  - Extrusión pseudo-3D de alturas según los valores inmobiliarios por metro cuadrado.
+- **Tematización Dinámica (Light, Dark, Pastel)**: Modifica automáticamente los estilos de la interfaz y las capas base de mapa (Carto Dark Matter, Positron y Voyager).
+- **Ejecución Nativa con HTM**: Implementado con la biblioteca HTM (Hyperscript Tagged Markup) para posibilitar el uso de JSX en el cliente sin requerir herramientas de compilación pesadas o CDNs propensos a fallar.
+
+---
+
 ## Licencia
 
 Este proyecto es parte del **Observatorio Virtual de Suelo (OVS)** — UNLP / Cientópolis.

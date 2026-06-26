@@ -1,48 +1,78 @@
-/* Configuración Global y Variables de Diseño - Material Design 3 (M3) */
 :root {
-    /* M3 System Colors (Light Mode) */
-    --md-sys-color-primary: #6750A4;
-    --md-sys-color-on-primary: #FFFFFF;
-    --md-sys-color-primary-container: #EADDFF;
-    --md-sys-color-on-primary-container: #21005D;
-    
-    --md-sys-color-secondary: #625B71;
-    --md-sys-color-on-secondary: #FFFFFF;
-    --md-sys-color-secondary-container: #E8DEF8;
-    
-    --md-sys-color-surface: #FEF7FF;
-    --md-sys-color-on-surface: #1D1B20;
-    --md-sys-color-surface-variant: #E7E0EC;
-    --md-sys-color-on-surface-variant: #49454F;
-    --md-sys-color-outline: #79747E;
-    --md-sys-color-background: #FEF7FF;
-    --md-sys-color-error: #B3261E;
-    
-    /* Mappings to OVS legacy variables */
-    --bg-base: var(--md-sys-color-background);
-    --bg-surface: var(--md-sys-color-surface);
-    --bg-surface-solid: #FFFFFF;
-    --bg-surface-hover: rgba(103, 80, 164, 0.08);
-    
-    --border-color: var(--md-sys-color-outline);
-    --border-color-focus: var(--md-sys-color-primary);
-    
-    --accent-primary: var(--md-sys-color-primary);
-    --accent-secondary: var(--md-sys-color-secondary);
-    --accent-gradient: linear-gradient(135deg, #6750A4 0%, #625B71 100%);
-    
-    --text-primary: var(--md-sys-color-on-surface);
-    --text-secondary: var(--md-sys-color-on-surface-variant);
-    --text-muted: #79747E;
-    
     --font-primary: 'Outfit', 'Roboto', sans-serif;
     --font-secondary: 'Roboto', 'Plus Jakarta Sans', sans-serif;
-    
-    /* M3 Elevation Shadows */
     --shadow-sm: 0 1px 3px 1px rgba(0,0,0,0.15), 0 1px 2px 0 rgba(0,0,0,0.30);
     --shadow-md: 0 2px 6px 2px rgba(0,0,0,0.15), 0 1px 2px 0 rgba(0,0,0,0.30);
     --shadow-lg: 0 4px 8px 3px rgba(0,0,0,0.15), 0 1px 3px 0 rgba(0,0,0,0.30);
-    --shadow-glow: 0 0 12px rgba(103, 80, 164, 0.25);
+}
+
+:root[data-theme='dark'] {
+    --bg-base: #0b0914;
+    --bg-surface: rgba(20, 18, 33, 0.75);
+    --bg-surface-solid: #141221;
+    --bg-surface-hover: #1f1b33;
+    --border-color: rgba(0, 229, 255, 0.15);
+    --border-light: rgba(255, 255, 255, 0.05);
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --accent-primary: #00e5ff;
+    --accent-secondary: #7c4dff;
+    --accent-glow: rgba(0, 229, 255, 0.2);
+    --accent-gradient: linear-gradient(135deg, #00e5ff 0%, #7c4dff 100%);
+    --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+    --header-bg: rgba(11, 9, 20, 0.85);
+    --table-header-bg: #1a172c;
+    --table-row-alternate: #12101e;
+    --input-bg: #0f0d1a;
+    --glass-blur: 16px;
+    --map-overlay-filter: brightness(0.8) contrast(1.2);
+}
+
+:root[data-theme='light'] {
+    --bg-base: #f8fafc;
+    --bg-surface: rgba(255, 255, 255, 0.75);
+    --bg-surface-solid: #ffffff;
+    --bg-surface-hover: #f1f5f9;
+    --border-color: rgba(14, 165, 233, 0.2);
+    --border-light: rgba(0, 0, 0, 0.05);
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #94a3b8;
+    --accent-primary: #0284c7;
+    --accent-secondary: #4f46e5;
+    --accent-glow: rgba(2, 132, 199, 0.15);
+    --accent-gradient: linear-gradient(135deg, #0284c7 0%, #4f46e5 100%);
+    --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+    --header-bg: rgba(248, 250, 252, 0.85);
+    --table-header-bg: #f1f5f9;
+    --table-row-alternate: #f8fafc;
+    --input-bg: #ffffff;
+    --glass-blur: 12px;
+    --map-overlay-filter: none;
+}
+
+:root[data-theme='pastel'] {
+    --bg-base: #f5efe6;
+    --bg-surface: rgba(253, 251, 247, 0.8);
+    --bg-surface-solid: #fdfbf7;
+    --bg-surface-hover: #f7f3eb;
+    --border-color: rgba(191, 144, 117, 0.25);
+    --border-light: rgba(120, 110, 90, 0.08);
+    --text-primary: #4a453e;
+    --text-secondary: #70695f;
+    --text-muted: #a09789;
+    --accent-primary: #d5a18e;
+    --accent-secondary: #bf9075;
+    --accent-glow: rgba(213, 161, 142, 0.2);
+    --accent-gradient: linear-gradient(135deg, #d5a18e 0%, #bf9075 100%);
+    --card-shadow: 0 10px 20px rgba(120, 110, 90, 0.05);
+    --header-bg: rgba(245, 239, 230, 0.85);
+    --table-header-bg: #eae3d2;
+    --table-row-alternate: #f5efe6;
+    --input-bg: #fdfbf7;
+    --glass-blur: 10px;
+    --map-overlay-filter: sepia(0.2) contrast(1.1);
 }
 
 /* Reset de Estilos */

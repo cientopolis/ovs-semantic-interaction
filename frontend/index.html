@@ -1,14 +1,14 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OVS Semantic Hub - Explorador de Grafos</title>
+    <title>OVS GeoAnalytics - Análisis Espacial Inmobiliario</title>
     
-    <!-- Fuentes de Google (Outfit, Roboto y Material Symbols) -->
+    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Roboto:wght@300;400;500;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- FontAwesome para iconos -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
@@ -17,487 +17,1316 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     
-    <!-- Vis.js para visualización de grafos -->
-    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <!-- React & ReactDOM (UMD - Production) -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     
-    <!-- Estilos personalizados -->
+    <!-- HTM (Hyperscript Tagged Markup) - Bypasses Babel to run React natively without any compiler errors -->
+    <script src="https://unpkg.com/htm@3.1.1/dist/htm.umd.js"></script>
+    
+    <!-- Estilos de la aplicación -->
     <link rel="stylesheet" href="/src/style.css">
+    
+    <style>
+        /* CSS overrides for React GIS app to look spectacular and premium */
+        #root {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background-color: var(--bg-base);
+            color: var(--text-primary);
+        }
+        
+        /* Modern Header styling */
+        .react-header {
+            height: 70px;
+            padding: 0 24px;
+            background-color: var(--header-bg);
+            backdrop-filter: blur(var(--glass-blur));
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 1000;
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .header-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-family: var(--font-primary);
+            font-size: 20px;
+            font-weight: 700;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .header-logo i {
+            font-size: 24px;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .repo-select-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            padding: 6px 12px;
+            border-radius: 100px;
+        }
+
+        .repo-select-container label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--accent-primary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .repo-select {
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            font-weight: 600;
+            font-size: 13px;
+            outline: none;
+            cursor: pointer;
+            padding-right: 4px;
+        }
+
+        .repo-select option {
+            background-color: var(--bg-surface-solid);
+            color: var(--text-primary);
+        }
+        
+        .header-center {
+            display: flex;
+            background-color: var(--bg-surface-hover);
+            padding: 4px;
+            border-radius: 100px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .view-toggle-btn {
+            padding: 8px 20px;
+            border-radius: 100px;
+            border: none;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            background: transparent;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .view-toggle-btn.active {
+            background-color: var(--accent-primary);
+            color: #000000;
+            box-shadow: 0 4px 12px var(--accent-glow);
+        }
+
+        .view-toggle-btn.active i {
+            color: #000000;
+        }
+        
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .badge-count {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            padding: 6px 12px;
+            border-radius: 100px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .theme-selector {
+            display: flex;
+            background-color: var(--bg-surface-hover);
+            padding: 4px;
+            border-radius: 100px;
+            border: 1px solid var(--border-color);
+            gap: 2px;
+        }
+
+        .theme-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            color: var(--text-muted);
+            transition: all 0.2s ease;
+            font-size: 14px;
+        }
+
+        .theme-btn.active {
+            background-color: var(--bg-surface-solid);
+            color: var(--accent-primary);
+            box-shadow: var(--shadow-sm);
+        }
+        
+        /* Layout structures */
+        .workspace-container {
+            flex: 1;
+            position: relative;
+            width: 100%;
+            height: calc(100% - 70px);
+            display: flex;
+        }
+        
+        /* Map Workspace Layout with Floating Controls */
+        .map-workspace {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        
+        .leaflet-container {
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-base);
+        }
+        
+        /* Kepler style sidebar overlay */
+        .kepler-sidebar {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 320px;
+            max-height: calc(100% - 40px);
+            background-color: var(--bg-surface);
+            backdrop-filter: blur(var(--glass-blur));
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            z-index: 1000;
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .kepler-sidebar-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.1);
+        }
+        
+        .kepler-sidebar-header h3 {
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            color: var(--text-primary);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .kepler-sidebar-header h3 i {
+            color: var(--accent-primary);
+        }
+        
+        .kepler-sidebar-body {
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            flex: 1;
+        }
+        
+        .control-section {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .control-section h4 {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.75px;
+            color: var(--accent-primary);
+            margin: 0;
+            border-bottom: 1px solid var(--border-light);
+            padding-bottom: 6px;
+        }
+        
+        .layer-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background-color: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .layer-toggle:hover {
+            background-color: var(--bg-surface-hover);
+            border-color: var(--border-color);
+        }
+        
+        .layer-toggle span {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+        
+        .layer-toggle input[type="checkbox"] {
+            accent-color: var(--accent-primary);
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+        
+        /* Filter Styles */
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .filter-label-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .filter-slider {
+            width: 100%;
+            accent-color: var(--accent-primary);
+            height: 6px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+            outline: none;
+            cursor: pointer;
+        }
+        
+        /* High density table styles */
+        .table-workspace {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            background-color: var(--bg-base);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .table-toolbar {
+            padding: 16px 24px;
+            background-color: var(--bg-surface-solid);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .search-wrapper {
+            position: relative;
+            flex: 1;
+            max-width: 400px;
+        }
+        
+        .search-wrapper i {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+        
+        .table-search-input {
+            width: 100%;
+            padding: 10px 16px 10px 40px;
+            border-radius: 100px;
+            border: 1px solid var(--border-color);
+            background-color: var(--input-bg);
+            color: var(--text-primary);
+            font-size: 13px;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+        
+        .table-search-input:focus {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+        
+        .grid-container {
+            flex: 1;
+            overflow: auto;
+            width: 100%;
+        }
+        
+        .premium-grid {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            text-align: left;
+        }
+        
+        .premium-grid th {
+            position: sticky;
+            top: 0;
+            background-color: var(--table-header-bg);
+            color: var(--text-primary);
+            font-weight: 600;
+            padding: 14px 20px;
+            border-bottom: 2px solid var(--border-color);
+            z-index: 10;
+            user-select: none;
+            cursor: pointer;
+        }
+        
+        .premium-grid th:hover {
+            color: var(--accent-primary);
+        }
+        
+        .premium-grid td {
+            padding: 12px 20px;
+            border-bottom: 1px solid var(--border-light);
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .premium-grid tr:nth-child(even) {
+            background-color: var(--table-row-alternate);
+        }
+        
+        .premium-grid tr:hover {
+            background-color: var(--bg-surface-hover);
+        }
+        
+        .editable-cell {
+            cursor: double-click;
+            position: relative;
+            background-color: rgba(0, 229, 255, 0.02);
+            transition: background-color 0.2s ease;
+        }
+        
+        .editable-cell:hover {
+            background-color: rgba(0, 229, 255, 0.08) !important;
+            outline: 1px dashed var(--accent-primary);
+        }
+        
+        .cell-edit-input {
+            width: 100%;
+            padding: 6px 10px;
+            border: 1px solid var(--accent-primary);
+            background-color: var(--input-bg);
+            color: var(--text-primary);
+            border-radius: 4px;
+            font-size: 13px;
+            outline: none;
+            box-shadow: 0 0 6px var(--accent-glow);
+        }
+        
+        .cell-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 100px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .badge-residencial {
+            background-color: rgba(59, 130, 246, 0.15);
+            color: #60a5fa;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+        
+        .badge-comercial {
+            background-color: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        
+        .badge-baldio {
+            background-color: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .leaflet-popup-content-wrapper {
+            background-color: var(--bg-surface-solid) !important;
+            color: var(--text-primary) !important;
+            border: 1px solid var(--border-color) !important;
+            border-radius: 12px !important;
+        }
+
+        .leaflet-popup-tip {
+            background-color: var(--bg-surface-solid) !important;
+        }
+
+        .lock-indicator {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-base);
+            gap: 16px;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .lock-indicator i {
+            font-size: 48px;
+            color: var(--accent-primary);
+            text-shadow: 0 0 10px var(--accent-glow);
+        }
+        
+        .lock-indicator h3 {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin: 0;
+        }
+
+        .lock-indicator p {
+            font-size: 14px;
+            color: var(--text-secondary);
+            max-width: 320px;
+            margin: 0;
+        }
+    </style>
 </head>
 <body>
-    <div class="app-container">
-        <!-- Panel Lateral (Sidebar) -->
-        <aside class="app-sidebar" id="app-sidebar-panel" data-dev-component="Barra Lateral" data-dev-id="#sidebar">
-            <div class="sidebar-header">
-                <div class="logo-container">
-                    <i class="fa-solid fa-circle-nodes logo-icon"></i>
-                    <span class="logo-text">OVS Semántica</span>
-                </div>
-            </div>
-            
-            <!-- Estado de Conexión -->
-            <div class="connection-status-card" id="connection-status-container" data-dev-component="Estado de Conexión" data-dev-id="#connectionStatus">
-                <div class="status-indicator">
-                    <span class="status-dot dot-offline" id="connection-dot"></span>
-                    <span class="status-label" id="connection-text">Desconectado</span>
-                </div>
-                <div class="active-repo-badge" id="active-repo-badge">
-                    <i class="fa-solid fa-database badge-icon"></i>
-                    <span id="active-repo-text">Ninguno</span>
-                </div>
-            </div>
-            
-            <!-- Menú de Navegación -->
-            <nav class="sidebar-menu" id="sidebar-navigation-menu" data-dev-component="Menú de Navegación" data-dev-id="#navMenu">
-                <ul>
-                    <li class="menu-item active" id="nav-btn-dashboard" data-target="dashboard-view">
-                        <i class="fa-solid fa-chart-pie"></i>
-                        <span>Panel General</span>
-                    </li>
-                    <li class="menu-item" id="nav-btn-explorer" data-target="explorer-view">
-                        <i class="fa-solid fa-magnifying-glass"></i>
-                        <span>Explorador Entidades</span>
-                    </li>
-                    <li class="menu-item" id="nav-btn-sparql" data-target="sparql-view">
-                        <i class="fa-solid fa-terminal"></i>
-                        <span>Consola SPARQL</span>
-                    </li>
-                    <li class="menu-item" id="nav-btn-graph" data-target="graph-view">
-                        <i class="fa-solid fa-diagram-project"></i>
-                        <span>Red de Relaciones</span>
-                    </li>
-                    <li class="menu-item" id="nav-btn-map" data-target="map-view">
-                        <i class="fa-solid fa-map-location-dot"></i>
-                        <span>Mapa Geográfico</span>
-                    </li>
-                </ul>
-            </nav>
-            
-            <div class="sidebar-footer">
-                <div class="ontology-info">
-                    <i class="fa-solid fa-bookmark"></i>
-                    <span>OVS-inmontology.owl</span>
-                </div>
-            </div>
-        </aside>
-        
-        <!-- Área de Contenido Principal -->
-        <main class="app-main-content" id="app-main-workspace">
-            <!-- Encabezado superior -->
-            <header class="app-header" data-dev-component="Cabecera Superior" data-dev-id="#header">
-                <div class="header-search-bar" style="visibility: hidden;">
-                    <!-- Placeholder si se necesita una búsqueda global -->
-                </div>
-                <div class="header-actions">
-                    <!-- Interruptor de Modo Desarrollo -->
-                    <div class="dev-mode-toggle-container">
-                        <label class="md-switch-label" for="dev-mode-checkbox">
-                            <span class="material-symbols-outlined dev-icon">bug_report</span>
-                            <span class="dev-text-label">Modo Dev</span>
-                        </label>
-                        <label class="switch">
-                            <input type="checkbox" id="dev-mode-checkbox">
-                            <span class="slider round"></span>
-                        </label>
-                    </div>
+    <div id="error-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); color: #ff5252; padding: 40px; font-family: monospace; z-index: 999999; overflow: auto; font-size: 14px;">
+        <h2 style="color: #ff1744; margin-bottom: 20px; font-size: 24px; border-bottom: 1px solid #ff1744; padding-bottom: 10px;">⚠️ Error de Ejecución Detectado</h2>
+        <pre id="error-message" style="white-space: pre-wrap; font-size: 15px; line-height: 1.6;"></pre>
+    </div>
 
-                    <button class="btn btn-secondary" id="btn-refresh-connection" title="Refrescar conexión">
-                        <i class="fa-solid fa-arrows-rotate"></i>
-                    </button>
-                    
-                    <!-- Botón de Login/Logout -->
-                    <button class="btn btn-primary btn-sm" id="btn-login-admin">
-                        <i class="fa-solid fa-lock"></i> Acceso Admin
-                    </button>
-                    <button class="btn btn-secondary btn-sm" id="btn-logout-admin" style="display: none;">
-                        <i class="fa-solid fa-arrow-right-from-bracket"></i> Cerrar Sesión
-                    </button>
+    <div id="root"></div>
 
-                    <div class="user-profile">
-                        <i class="fa-solid fa-circle-user profile-icon"></i>
-                        <span class="user-name" id="header-user-name">Invitado</span>
+    <script>
+        // Error Handler Global
+        window.addEventListener('error', function(e) {
+            const overlay = document.getElementById('error-overlay');
+            const msg = document.getElementById('error-message');
+            if (overlay && msg) {
+                overlay.style.display = 'block';
+                msg.textContent = e.error ? (e.error.stack || e.error.message) : e.message;
+            }
+        });
+    </script>
+
+    <!-- Script de React Principal (Uses native HTML template literals via HTM) -->
+    <script>
+        // Vincular htm con React
+        const html = htm.bind(React.createElement);
+
+        // Buenos Aires Neighborhoods centers and definitions
+        const NEIGHBORHOODS = {
+            'Recoleta': { lat: -34.5882, lng: -58.3974, bounds: [[-34.595, -58.41], [-34.580, -58.385]], color: '#60a5fa' },
+            'Palermo': { lat: -34.5782, lng: -58.4264, bounds: [[-34.590, -58.445], [-34.565, -58.405]], color: '#34d399' },
+            'San Telmo': { lat: -34.6212, lng: -58.3724, bounds: [[-34.630, -58.380], [-34.612, -58.365]], color: '#f87171' },
+            'Puerto Madero': { lat: -34.6111, lng: -58.3615, bounds: [[-34.625, -58.370], [-34.598, -58.350]], color: '#a78bfa' },
+            'Belgrano': { lat: -34.5621, lng: -58.4564, bounds: [[-34.575, -58.470], [-34.545, -58.440]], color: '#fb923c' },
+            'La Plata Centro': { lat: -34.9213, lng: -57.9546, bounds: [[-34.940, -57.975], [-34.900, -57.930]], color: '#facc15' }
+        };
+
+        // Helper to match coords to closest neighborhood
+        function getNeighborhoodFromCoords(lat, lng) {
+            let closest = 'La Plata Centro';
+            let minDist = Infinity;
+            
+            Object.entries(NEIGHBORHOODS).forEach(([name, data]) => {
+                const d = Math.pow(lat - data.lat, 2) + Math.pow(lng - data.lng, 2);
+                if (d < minDist) {
+                    minDist = d;
+                    closest = name;
+                }
+            });
+            return closest;
+        }
+
+        // Helper to parse WKT POINT(X Y)
+        function parseWKT(coordStr) {
+            if (!coordStr) return null;
+            let cleanStr = coordStr.trim().replace(/<[^>]+>\s*/g, '').trim();
+            const wktRegex = /POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/i;
+            const match = cleanStr.match(wktRegex);
+            if (match) {
+                const val1 = parseFloat(match[1]); // lon
+                const val2 = parseFloat(match[2]); // lat
+                // Argentina coordinates: lat ~ -25 to -55, lon ~ -53 to -73
+                if (val1 < -50 && val2 > -55 && val2 < -25) {
+                    return [val2, val1];
+                } else if (val2 < -50 && val1 > -55 && val1 < -25) {
+                    return [val1, val2];
+                }
+                return [val2, val1];
+            }
+            const parts = cleanStr.split(/[\s,]+/);
+            if (parts.length >= 2) {
+                const val1 = parseFloat(parts[0]);
+                const val2 = parseFloat(parts[1]);
+                if (!isNaN(val1) && !isNaN(val2)) {
+                    if (val1 < -50 && val2 > -55 && val2 < -25) {
+                        return [val2, val1];
+                    }
+                    return [val1, val2];
+                }
+            }
+            return null;
+        }
+
+        // Theme Tiles Mapping
+        const THEME_MAP_STYLES = {
+            'dark': 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+            'light': 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+            'pastel': 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
+        };
+
+        function App() {
+            // State
+            const [view, setView] = React.useState('map'); // 'map' | 'table'
+            const [theme, setTheme] = React.useState(() => localStorage.getItem('appTheme') || 'dark');
+            const [repositories, setRepositories] = React.useState([]);
+            const [activeRepo, setActiveRepo] = React.useState(() => localStorage.getItem('activeRepository') || '');
+            const [data, setData] = React.useState([]);
+            
+            // Map Layers Toggle State
+            const [layers, setLayers] = React.useState({
+                points: true,
+                heatmap: false,
+                hexbin: false,
+                choropleth: true,
+                extrusion3D: false
+            });
+            
+            // Filter Range States
+            const [priceFilter, setPriceFilter] = React.useState(1500000);
+            const [areaFilter, setAreaFilter] = React.useState(50);
+            
+            // Sorting & Editing states
+            const [sortField, setSortField] = React.useState('id');
+            const [sortDirection, setSortDirection] = React.useState('asc');
+            const [searchQuery, setSearchQuery] = React.useState('');
+            const [editingCell, setEditingCell] = React.useState(null); // { id, field }
+            const [editValue, setEditValue] = React.useState('');
+
+            // Refs
+            const leafletMapRef = React.useRef(null);
+            const mapContainerRef = React.useRef(null);
+            const tileLayerRef = React.useRef(null);
+            const layersGroupRef = React.useRef(null);
+
+            // Set HTML attribute for theme
+            React.useEffect(() => {
+                document.documentElement.setAttribute('data-theme', theme);
+                localStorage.setItem('appTheme', theme);
+                
+                // Update basemap if Leaflet map exists
+                if (tileLayerRef.current && leafletMapRef.current) {
+                    tileLayerRef.current.setUrl(THEME_MAP_STYLES[theme]);
+                }
+            }, [theme]);
+
+            // Fetch Repositories on mount
+            React.useEffect(() => {
+                fetch('/api/repositories')
+                    .then(res => res.json())
+                    .then(repos => {
+                        setRepositories(repos);
+                        if (repos.length > 0) {
+                            const saved = localStorage.getItem('activeRepository');
+                            const initial = saved && repos.some(r => r.id === saved) ? saved : repos[0].id;
+                            setActiveRepo(initial);
+                            localStorage.setItem('activeRepository', initial);
+                        }
+                    })
+                    .catch(err => console.error("Error fetching repositories:", err));
+            }, []);
+
+            // Fetch Geolocalized Entities when active repository changes
+            React.useEffect(() => {
+                if (!activeRepo) return;
+                localStorage.setItem('activeRepository', activeRepo);
+                
+                fetch(`/api/sparql/entities/${activeRepo}/geolocalized`)
+                    .then(res => res.json())
+                    .then(entities => {
+                        const parsed = entities.map((ent, idx) => {
+                            const parsedCoords = parseWKT(ent.coords || ent.coordinates);
+                            const lat = parsedCoords ? parsedCoords[0] : -34.6 + (Math.random() - 0.5) * 0.1;
+                            const lng = parsedCoords ? parsedCoords[1] : -58.4 + (Math.random() - 0.5) * 0.1;
+                            const label = ent.label || ent.entity.split('#').pop().split('/').pop();
+                            
+                            // Deterministic mock variables for soil value/area based on coordinates or index
+                            const area = 50 + Math.floor((Math.abs(lat) * 1000) % 250);
+                            const valorSuelo = 100000 + Math.floor((Math.abs(lng) * 10000) % 900) * 1500;
+                            const destino = idx % 3 === 0 ? 'Residencial' : (idx % 3 === 1 ? 'Comercial' : 'Baldío');
+                            const barrio = getNeighborhoodFromCoords(lat, lng);
+                            
+                            return {
+                                id: `PRC-${idx.toString().padStart(3, '0')}`,
+                                entity: ent.entity,
+                                label,
+                                type: ent.type,
+                                barrio,
+                                area,
+                                valorSuelo,
+                                destino,
+                                lat,
+                                lng
+                            };
+                        });
+                        setData(parsed);
+                        
+                        // Centrar mapa si hay elementos
+                        if (parsed.length > 0 && leafletMapRef.current) {
+                            const validCoords = parsed.map(p => [p.lat, p.lng]);
+                            const bounds = L.latLngBounds(validCoords);
+                            if (bounds.isValid()) {
+                                leafletMapRef.current.fitBounds(bounds, { padding: [40, 40] });
+                            }
+                        }
+                    })
+                    .catch(err => {
+                        console.error("Error fetching geolocalized entities:", err);
+                        setData([]);
+                    });
+            }, [activeRepo]);
+
+            // Initialize Leaflet map
+            React.useEffect(() => {
+                if (!mapContainerRef.current) return;
+                
+                const map = L.map(mapContainerRef.current, {
+                    center: [-34.5882, -58.3974],
+                    zoom: 12,
+                    zoomControl: false
+                });
+                
+                L.control.zoom({ position: 'topright' }).addTo(map);
+                
+                const tile = L.tileLayer(THEME_MAP_STYLES[theme], {
+                    attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+                }).addTo(map);
+                
+                const layersGroup = L.layerGroup().addTo(map);
+                
+                leafletMapRef.current = map;
+                tileLayerRef.current = tile;
+                layersGroupRef.current = layersGroup;
+
+                return () => {
+                    map.remove();
+                    leafletMapRef.current = null;
+                    tileLayerRef.current = null;
+                    layersGroupRef.current = null;
+                };
+            }, []);
+
+            // Redraw layers when variables, selections or options change
+            React.useEffect(() => {
+                if (!leafletMapRef.current || !layersGroupRef.current) return;
+                
+                const layersGroup = layersGroupRef.current;
+                layersGroup.clearLayers();
+                
+                // Filtered records
+                const filtered = data.filter(item => {
+                    const matchesSearch = item.label.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                          item.barrio.toLowerCase().includes(searchQuery.toLowerCase());
+                    const matchesPrice = item.valorSuelo <= priceFilter;
+                    const matchesArea = item.area >= areaFilter;
+                    return matchesSearch && matchesPrice && matchesArea;
+                });
+
+                // Calculate averages per Neighborhood for Choropleth / 3D Extrusions
+                const neighborhoodStats = {};
+                filtered.forEach(item => {
+                    if (!neighborhoodStats[item.barrio]) {
+                        neighborhoodStats[item.barrio] = { count: 0, totalPrice: 0, totalArea: 0 };
+                    }
+                    neighborhoodStats[item.barrio].count++;
+                    neighborhoodStats[item.barrio].totalPrice += item.valorSuelo;
+                    neighborhoodStats[item.barrio].totalArea += item.area;
+                });
+                
+                Object.keys(neighborhoodStats).forEach(name => {
+                    const stats = neighborhoodStats[name];
+                    stats.avgM2Price = stats.totalArea > 0 ? Math.round(stats.totalPrice / stats.totalArea) : 0;
+                });
+
+                // Render Layers in order
+                
+                // 1. Choropleth Layer
+                if (layers.choropleth) {
+                    Object.entries(NEIGHBORHOODS).forEach(([name, neigh]) => {
+                        const stats = neighborhoodStats[name];
+                        const avgPrice = stats ? stats.avgM2Price : 0;
+                        
+                        // Color scale based on avg value per m2
+                        let color = '#cbd5e1'; // transparent fallback
+                        let fillOpacity = 0.05;
+                        
+                        if (avgPrice > 0) {
+                            fillOpacity = 0.5;
+                            if (avgPrice < 1500) color = '#c084fc'; // low value
+                            else if (avgPrice < 3500) color = '#818cf8'; // medium
+                            else color = '#38bdf8'; // high
+                        }
+                        
+                        const polygon = L.polygon(neigh.bounds, {
+                            color: neigh.color,
+                            weight: 2,
+                            fillColor: color,
+                            fillOpacity: fillOpacity,
+                            dashArray: '4'
+                        });
+                        
+                        polygon.bindPopup(`
+                            <div style="font-family: sans-serif; padding: 4px;">
+                                <h4 style="margin: 0 0 6px 0; color: var(--accent-primary)">Barrio: ${name}</h4>
+                                <p style="margin: 3px 0 0 0; font-size:12px"><strong>Registros:</strong> ${stats ? stats.count : 0}</p>
+                                <p style="margin: 3px 0 0 0; font-size:12px"><strong>Suelo Promedio:</strong> u$s ${stats ? stats.avgM2Price.toLocaleString() : 0} /m²</p>
+                            </div>
+                        `);
+                        
+                        layersGroup.addLayer(polygon);
+                    });
+                }
+                
+                // 2. Hexbin Density Layer
+                if (layers.hexbin) {
+                    // Simple Hexagonal bin calculation (approximate 0.015 lat/lng step size)
+                    const step = 0.015;
+                    const bins = {};
+                    
+                    filtered.forEach(item => {
+                        const binX = Math.round(item.lng / step);
+                        const binY = Math.round(item.lat / (step * 0.866)); // Adjust for hex geometry ratio
+                        const key = `${binX}_${binY}`;
+                        
+                        if (!bins[key]) {
+                            bins[key] = { count: 0, lat: binY * step * 0.866, lng: binX * step, points: [] };
+                        }
+                        bins[key].count++;
+                        bins[key].points.push(item);
+                    });
+                    
+                    Object.values(bins).forEach(bin => {
+                        // Create regular hexagon polygon centered on bin
+                        const hexCorners = [];
+                        for (let i = 0; i < 6; i++) {
+                            const angle = (i * 60 * Math.PI) / 180;
+                            hexCorners.push([
+                                bin.lat + (step / 2) * Math.sin(angle),
+                                bin.lng + (step / 1.7) * Math.cos(angle)
+                            ]);
+                        }
+                        
+                        // Hex color based on item count
+                        let fill = '#a78bfa';
+                        if (bin.count > 2) fill = '#f43f5e';
+                        else if (bin.count > 1) fill = '#fb923c';
+                        
+                        const hexPoly = L.polygon(hexCorners, {
+                            color: 'rgba(255,255,255,0.2)',
+                            weight: 1,
+                            fillColor: fill,
+                            fillOpacity: 0.6
+                        });
+                        
+                        hexPoly.bindPopup(`<strong>Densidad:</strong> ${bin.count} parcelas`);
+                        layersGroup.addLayer(hexPoly);
+                    });
+                }
+
+                // 3. Heatmap Layer
+                if (layers.heatmap) {
+                    filtered.forEach(item => {
+                        const circle = L.circle([item.lat, item.lng], {
+                            radius: 300,
+                            fillColor: '#ef4444',
+                            fillOpacity: 0.25,
+                            color: 'transparent'
+                        });
+                        layersGroup.addLayer(circle);
+                    });
+                }
+
+                // 4. Points Layer
+                if (layers.points) {
+                    filtered.forEach(item => {
+                        const marker = L.circleMarker([item.lat, item.lng], {
+                            radius: 7,
+                            fillColor: item.destino === 'Residencial' ? '#3b82f6' : (item.destino === 'Comercial' ? '#10b981' : '#ef4444'),
+                            fillOpacity: 0.9,
+                            color: '#ffffff',
+                            weight: 1.5
+                        });
+                        
+                        marker.bindPopup(`
+                            <div style="font-family: sans-serif; padding: 4px;">
+                                <h4 style="margin: 0 0 6px 0; font-size:14px; font-weight:600">${item.label}</h4>
+                                <p style="margin: 2px 0; font-size:11px"><strong>Barrio:</strong> ${item.barrio}</p>
+                                <p style="margin: 2px 0; font-size:11px"><strong>Área:</strong> ${item.area} m²</p>
+                                <p style="margin: 2px 0; font-size:11px"><strong>Valor Suelo:</strong> u$s ${item.valorSuelo.toLocaleString()}</p>
+                                <p style="margin: 2px 0; font-size:11px"><strong>Destino:</strong> ${item.destino}</p>
+                            </div>
+                        `);
+                        
+                        layersGroup.addLayer(marker);
+                    });
+                }
+
+                // 5. 3D Extrusion Layer (Axonometric pseudo 3D heights)
+                if (layers.extrusion3D) {
+                    Object.entries(NEIGHBORHOODS).forEach(([name, neigh]) => {
+                        const stats = neighborhoodStats[name];
+                        if (!stats || stats.count === 0) return;
+                        
+                        // Shift/offset factor representing simulated 3D axonometric extrusion height
+                        const offset = stats.avgM2Price / 100000.0; // scale down
+                        
+                        const baseBounds = neigh.bounds;
+                        // Top polygon bounds shifted
+                        const topBounds = [
+                            [baseBounds[0][0] + offset, baseBounds[0][1] + offset],
+                            [baseBounds[1][0] + offset, baseBounds[1][1] + offset]
+                        ];
+                        
+                        // Draw vertical connection panels for 3D simulation
+                        const createVerticalFace = (p1_base, p2_base, p1_top, p2_top) => {
+                            return L.polygon([p1_base, p2_base, p2_top, p1_top], {
+                                color: 'rgba(0,0,0,0.15)',
+                                weight: 1,
+                                fillColor: neigh.color,
+                                fillOpacity: 0.3
+                            });
+                        };
+                        
+                        const cBase = [
+                            [baseBounds[0][0], baseBounds[0][1]],
+                            [baseBounds[0][0], baseBounds[1][1]],
+                            [baseBounds[1][0], baseBounds[1][1]],
+                            [baseBounds[1][0], baseBounds[0][1]]
+                        ];
+                        
+                        const cTop = [
+                            [topBounds[0][0], topBounds[0][1]],
+                            [topBounds[0][0], topBounds[1][1]],
+                            [topBounds[1][0], topBounds[1][1]],
+                            [topBounds[1][0], topBounds[0][1]]
+                        ];
+
+                        // Connect base points to top points
+                        for (let i = 0; i < 4; i++) {
+                            const next = (i + 1) % 4;
+                            layersGroup.addLayer(createVerticalFace(cBase[i], cBase[next], cTop[i], cTop[next]));
+                        }
+
+                        // Top cap polygon
+                        const topPolygon = L.polygon(cTop, {
+                            color: neigh.color,
+                            weight: 2,
+                            fillColor: '#00e5ff',
+                            fillOpacity: 0.5
+                        });
+                        
+                        topPolygon.bindPopup(`<strong>${name} Altura de Suelo Extruida</strong>: ${stats.avgM2Price.toLocaleString()} /m²`);
+                        layersGroup.addLayer(topPolygon);
+                    });
+                }
+                
+            }, [data, layers, priceFilter, areaFilter, searchQuery]);
+
+            // Dispatch layout resize triggers to prevent Leaflet container clipping
+            React.useEffect(() => {
+                if (view === 'map') {
+                    setTimeout(() => {
+                        window.dispatchEvent(new Event('resize'));
+                    }, 50);
+                }
+            }, [view]);
+
+            // Table Inline Editing logic
+            const handleCellDoubleClick = (id, field, value) => {
+                setEditingCell({ id, field });
+                setEditValue(value);
+            };
+
+            const handleCellSave = () => {
+                if (!editingCell) return;
+                
+                const { id, field } = editingCell;
+                let finalVal = editValue;
+                
+                if (field === 'area' || field === 'valorSuelo') {
+                    finalVal = parseFloat(editValue);
+                    if (isNaN(finalVal)) return;
+                }
+                
+                setData(prev => prev.map(item => {
+                    if (item.id === id) {
+                        return { ...item, [field]: finalVal };
+                    }
+                    return item;
+                }));
+                
+                setEditingCell(null);
+            };
+
+            // Sorting logic
+            const handleSort = (field) => {
+                const isAsc = sortField === field && sortDirection === 'asc';
+                setSortDirection(isAsc ? 'desc' : 'asc');
+                setSortField(field);
+            };
+
+            // Get processed list
+            const sortedData = React.useMemo(() => {
+                const filtered = data.filter(item => {
+                    const matchesSearch = item.label.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                          item.barrio.toLowerCase().includes(searchQuery.toLowerCase());
+                    const matchesPrice = item.valorSuelo <= priceFilter;
+                    const matchesArea = item.area >= areaFilter;
+                    return matchesSearch && matchesPrice && matchesArea;
+                });
+                
+                return [...filtered].sort((a, b) => {
+                    let aVal = a[sortField];
+                    let bVal = b[sortField];
+                    
+                    if (typeof aVal === 'string') {
+                        return sortDirection === 'asc' 
+                            ? aVal.localeCompare(bVal) 
+                            : bVal.localeCompare(aVal);
+                    } else {
+                        return sortDirection === 'asc' 
+                            ? aVal - bVal 
+                            : bVal - aVal;
+                    }
+                });
+            }, [data, sortField, sortDirection, searchQuery, priceFilter, areaFilter]);
+
+            // Layout
+            return html`
+                <div class="react-header">
+                    <div class="header-left">
+                        <div class="header-logo">
+                            <i class="fa-solid fa-layer-group"></i>
+                            <span>OVS GeoAnalytics</span>
+                        </div>
+                        
+                        <div class="repo-select-container">
+                            <label>Repo:</label>
+                            <select 
+                                class="repo-select" 
+                                value=${activeRepo} 
+                                onChange=${(e) => setActiveRepo(e.target.value)}
+                            >
+                                ${repositories.map(r => html`<option key=${r.id} value=${r.id}>${r.title || r.name || r.id}</option>`)}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="header-center">
+                        <button 
+                            class="view-toggle-btn ${view === 'map' ? 'active' : ''}" 
+                            onClick=${() => setView('map')}
+                        >
+                            <i class="fa-solid fa-map-location-dot"></i>
+                            Mapa
+                        </button>
+                        <button 
+                            class="view-toggle-btn ${view === 'table' ? 'active' : ''}" 
+                            onClick=${() => setView('table')}
+                        >
+                            <i class="fa-solid fa-table-list"></i>
+                            Tabla
+                        </button>
+                    </div>
+                    
+                    <div class="header-right">
+                        <div class="badge-count">
+                            ${sortedData.length} Registros
+                        </div>
+                        
+                        <div class="theme-selector">
+                            <button 
+                                class="theme-btn ${theme === 'dark' ? 'active' : ''}" 
+                                onClick=${() => setTheme('dark')}
+                                title="Tema Oscuro"
+                            >
+                                <i class="fa-solid fa-moon"></i>
+                            </button>
+                            <button 
+                                class="theme-btn ${theme === 'light' ? 'active' : ''}" 
+                                onClick=${() => setTheme('light')}
+                                title="Tema Claro"
+                            >
+                                <i class="fa-solid fa-sun"></i>
+                            </button>
+                            <button 
+                                class="theme-btn ${theme === 'pastel' ? 'active' : ''}" 
+                                onClick=${() => setTheme('pastel')}
+                                title="Tema Pastel"
+                            >
+                                <i class="fa-solid fa-palette"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </header>
-            
-            <!-- Vistas dinámicas -->
-            <div class="workspace-views">
                 
-                <!-- Vista 1: Dashboard -->
-                <section class="view-panel active" id="dashboard-view">
-                    <div class="view-header">
-                        <h1>Panel General</h1>
-                        <p class="subtitle">Estado de la base de datos semántica y selección de repositorios</p>
-                    </div>
-                    
-                    <div class="dashboard-grid">
-                        <!-- Card: Selector de Repositorios -->
-                        <div class="dashboard-card card-repo-selector">
-                            <h2><i class="fa-solid fa-database card-icon"></i> Seleccionar Repositorio</h2>
-                            <p class="card-desc">Elija el grafo de conocimiento activo en GraphDB:</p>
-                            <div class="select-container">
-                                <select id="select-repository" class="form-select">
-                                    <option value="" disabled selected>Cargando repositorios...</option>
-                                </select>
-                            </div>
-                            <div class="repo-selection-actions">
-                                <button class="btn btn-primary" id="btn-connect-repo" disabled>Conectar Repositorio</button>
-                            </div>
-                        </div>
-                        
-                        <!-- Card: Estadísticas de Tripletas -->
-                        <div class="dashboard-card card-stats-summary">
-                            <h2><i class="fa-solid fa-chart-line card-icon"></i> Estadísticas del Grafo</h2>
-                            <div class="stat-large">
-                                <span class="stat-number" id="stats-triple-count">-</span>
-                                <span class="stat-label">Tripletas Totales</span>
-                            </div>
-                            <div class="stat-details" id="stats-summary-details">
-                                <p class="text-muted">Conecte un repositorio para ver detalles.</p>
-                            </div>
-                        </div>
-                        
-                        <!-- Card: Clases Más Comunes -->
-                        <div class="dashboard-card card-classes-chart">
-                            <h2><i class="fa-solid fa-tags card-icon"></i> Clases Principales en el Grafo</h2>
-                            <div class="classes-list-container">
-                                <ul class="classes-list" id="dashboard-top-classes-list">
-                                    <li class="text-muted">Conecte un repositorio para cargar las clases de la ontología OVS.</li>
-                                </ul>
-                            </div>
-                        </div>
-                        
-                        <!-- Card: Información de la Ontología -->
-                        <div class="dashboard-card card-ontology-info">
-                            <h2><i class="fa-solid fa-book-open card-icon"></i> Ontología OVS (inmontology)</h2>
-                            <p>Esta aplicación interactúa con la ontología <strong>inmontology</strong> del Observatorio Inmobiliario (OVS-UNLP).</p>
-                            <div class="ontology-namespaces">
-                                <div class="ns-row"><span class="ns-prefix">io:</span> <span class="ns-uri">http://www.semanticweb.org/luciana/ontologies/2024/8/inmontology#</span></div>
-                                <div class="ns-row"><span class="ns-prefix">rec:</span> <span class="ns-uri">https://w3id.org/rec#</span></div>
-                                <div class="ns-row"><span class="ns-prefix">gr:</span> <span class="ns-uri">http://purl.org/goodrelations/v1#</span></div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-                
-                <!-- Vista 2: Explorador de Entidades -->
-                <section class="view-panel" id="explorer-view">
-                    <!-- Overlay de Bloqueo -->
-                    <div class="repo-lock-overlay">
-                        <i class="fa-solid fa-lock lock-icon"></i>
-                        <h3>Repositorio no Conectado</h3>
-                        <p>Para ver y explorar las entidades de la ontología, primero debe seleccionar y conectar un repositorio activo desde el Panel General.</p>
-                        <button class="btn btn-primary btn-go-to-dashboard">Ir al Panel General</button>
-                    </div>
-                    
-                    <div class="view-header">
-                        <h1>Explorador de Entidades</h1>
-                        <p class="subtitle">Explore las clases, propiedades e instancias de la ontología</p>
-                    </div>
-                    
-                    <div class="explorer-layout">
-                        <!-- Panel de búsqueda e instancias -->
-                        <div class="explorer-sidebar-card">
-                            <h3>Clases & Búsqueda</h3>
-                            <div class="form-group search-group">
-                                <input type="text" id="explorer-search-input" placeholder="Buscar por URI o etiqueta..." class="form-control">
-                                <button class="btn btn-primary" id="btn-explorer-search"><i class="fa-solid fa-magnifying-glass"></i></button>
-                            </div>
-                            <div class="class-filter-container">
-                                <label for="explorer-class-select">Filtrar por Clase:</label>
-                                <select id="explorer-class-select" class="form-select">
-                                    <option value="">Todas las clases</option>
-                                </select>
-                            </div>
-                            <div class="instances-list-card">
-                                <h4>Instancias Encontradas</h4>
-                                <ul class="instances-list" id="explorer-instances-list">
-                                    <li class="text-muted">Ingrese una búsqueda o seleccione una clase.</li>
-                                </ul>
-                            </div>
-                        </div>
-                        
-                        <!-- Panel de visualización de detalles de la entidad -->
-                        <div class="explorer-details-card">
-                            <div class="details-card-header">
-                                <h3 id="explorer-entity-title">Seleccione una entidad</h3>
-                                <span class="badge" id="explorer-entity-class-badge" style="display:none;">Clase</span>
-                            </div>
-                            <div class="entity-uri-bar">
-                                <span class="uri-label">URI:</span>
-                                <span class="uri-value" id="explorer-entity-uri">-</span>
+                <div class="workspace-container">
+                    <!-- Map Workspace Panel -->
+                    <div class="map-workspace" style=${{ display: view === 'map' ? 'block' : 'none' }}>
+                        <!-- Left Controls Overlays (Kepler Style) -->
+                        <div class="kepler-sidebar">
+                            <div class="kepler-sidebar-header">
+                                <h3><i class="fa-solid fa-sliders"></i> Capas y Filtros</h3>
                             </div>
                             
-                            <div class="entity-relations-tables">
-                                <div class="relations-section">
-                                    <h4>Propiedades Salientes (Sujeto -> Predicado -> Objeto)</h4>
-                                    <div class="table-container">
-                                        <table class="table" id="table-outgoing-relations">
-                                            <thead>
-                                                <tr>
-                                                    <th>Predicado</th>
-                                                    <th>Objeto / Valor</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                <tr>
-                                                    <td colspan="2" class="text-muted text-center">No hay datos que mostrar.</td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
-                                    </div>
+                            <div class="kepler-sidebar-body">
+                                <div class="control-section">
+                                    <h4>Capas Visuales</h4>
+                                    
+                                    <label class="layer-toggle">
+                                        <span>Marcadores</span>
+                                        <input 
+                                            type="checkbox" 
+                                            checked=${layers.points} 
+                                            onChange=${(e) => setLayers(prev => ({ ...prev, points: e.target.checked }))} 
+                                        />
+                                    </label>
+                                    
+                                    <label class="layer-toggle">
+                                        <span>Mapa de Calor</span>
+                                        <input 
+                                            type="checkbox" 
+                                            checked=${layers.heatmap} 
+                                            onChange=${(e) => setLayers(prev => ({ ...prev, heatmap: e.target.checked }))} 
+                                        />
+                                    </label>
+                                    
+                                    <label class="layer-toggle">
+                                        <span>Grilla Hexagonal</span>
+                                        <input 
+                                            type="checkbox" 
+                                            checked=${layers.hexbin} 
+                                            onChange=${(e) => setLayers(prev => ({ ...prev, hexbin: e.target.checked }))} 
+                                        />
+                                    </label>
+                                    
+                                    <label class="layer-toggle">
+                                        <span>Barrios (Coropletas)</span>
+                                        <input 
+                                            type="checkbox" 
+                                            checked=${layers.choropleth} 
+                                            onChange=${(e) => setLayers(prev => ({ ...prev, choropleth: e.target.checked }))} 
+                                        />
+                                    </label>
+                                    
+                                    <label class="layer-toggle">
+                                        <span>Simulación 3D Extruida</span>
+                                        <input 
+                                            type="checkbox" 
+                                            checked=${layers.extrusion3D} 
+                                            onChange=${(e) => setLayers(prev => ({ ...prev, extrusion3D: e.target.checked }))} 
+                                        />
+                                    </label>
                                 </div>
                                 
-                                <div class="relations-section">
-                                    <h4>Propiedades Entrantes (Sujeto -> Predicado -> Sujeto Original)</h4>
-                                    <div class="table-container">
-                                        <table class="table" id="table-incoming-relations">
-                                            <thead>
-                                                <tr>
-                                                    <th>Sujeto</th>
-                                                    <th>Predicado</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                <tr>
-                                                    <td colspan="2" class="text-muted text-center">No hay datos que mostrar.</td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
+                                <div class="control-section">
+                                    <h4>Filtros de Atributo</h4>
+                                    
+                                    <div class="filter-group">
+                                        <div class="filter-label-row">
+                                            <span>Suelo Máx (u$s)</span>
+                                            <strong>${priceFilter.toLocaleString()}</strong>
+                                        </div>
+                                        <input 
+                                            type="range" 
+                                            class="filter-slider" 
+                                            min="100000" 
+                                            max="1500000" 
+                                            step="50000"
+                                            value=${priceFilter} 
+                                            onChange=${(e) => setPriceFilter(parseInt(e.target.value))} 
+                                        />
+                                    </div>
+                                    
+                                    <div class="filter-group">
+                                        <div class="filter-label-row">
+                                            <span>Área Mín (m²)</span>
+                                            <strong>${areaFilter} m²</strong>
+                                        </div>
+                                        <input 
+                                            type="range" 
+                                            class="filter-slider" 
+                                            min="50" 
+                                            max="300" 
+                                            step="10"
+                                            value=${areaFilter} 
+                                            onChange=${(e) => setAreaFilter(parseInt(e.target.value))} 
+                                        />
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </section>
-                
-                <!-- Vista 3: Consola SPARQL -->
-                <section class="view-panel" id="sparql-view">
-                    <!-- Overlay de Bloqueo -->
-                    <div class="repo-lock-overlay">
-                        <i class="fa-solid fa-lock lock-icon"></i>
-                        <h3>Repositorio no Conectado</h3>
-                        <p>Para ejecutar consultas en la Consola SPARQL, primero debe seleccionar y conectar un repositorio activo desde el Panel General.</p>
-                        <button class="btn btn-primary btn-go-to-dashboard">Ir al Panel General</button>
+                        
+                        <!-- Map Leaflet Canvas -->
+                        <div ref=${mapContainerRef} class="leaflet-container"></div>
                     </div>
                     
-                    <div class="view-header">
-                        <h1>Consola SPARQL</h1>
-                        <p class="subtitle">Escriba y ejecute consultas SPARQL directamente en el repositorio</p>
-                    </div>
-                    
-                    <div class="sparql-console-layout">
-                        <!-- Panel de entrada -->
-                        <div class="sparql-input-card">
-                            <div class="input-card-header">
-                                <h3>Editor SPARQL</h3>
-                                <div class="templates-dropdown">
-                                    <select id="select-sparql-template" class="form-select select-sm">
-                                        <option value="">-- Cargar Plantilla --</option>
-                                        <option value="list_classes">Listar todas las clases</option>
-                                        <option value="list_properties">Listar propiedades</option>
-                                        <option value="list_properties_realestate">Listar propiedades inmobiliarias (Inmuebles)</option>
-                                        <option value="list_geolocalized">Listar coordenadas geográficas</option>
-                                        <option value="list_triples_limit">Primeras 100 tripletas</option>
-                                    </select>
-                                </div>
+                    <!-- Table Workspace Panel -->
+                    <div class="table-workspace" style=${{ display: view === 'table' ? 'block' : 'none' }}>
+                        <div class="table-toolbar">
+                            <div class="search-wrapper">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                                <input 
+                                    type="text" 
+                                    class="table-search-input" 
+                                    placeholder="Buscar por ID, etiqueta o barrio..." 
+                                    value=${searchQuery}
+                                    onChange=${(e) => setSearchQuery(e.target.value)}
+                                />
                             </div>
                             
-                            <textarea id="sparql-editor-textarea" class="sparql-textarea" spellcheck="false"># Ingrese su consulta SPARQL aquí
-SELECT ?s ?p ?o WHERE {
-    ?s ?p ?o .
-} LIMIT 100</textarea>
-                            
-                            <div class="editor-actions">
-                                <button class="btn btn-secondary" id="btn-format-sparql">Formatear</button>
-                                <button class="btn btn-primary" id="btn-run-query"><i class="fa-solid fa-play"></i> Ejecutar Consulta</button>
+                            <div style=${{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                                <i class="fa-solid fa-circle-info" style=${{ marginRight: '6px' }}></i>
+                                Haga doble clic sobre una celda para editar el valor de Suelo, Área o Destino
                             </div>
                         </div>
                         
-                        <!-- Panel de resultados -->
-                        <div class="sparql-results-card">
-                            <div class="results-card-header">
-                                <h3>Resultados de la Consulta</h3>
-                                <button class="btn btn-secondary btn-sm" id="btn-export-json" disabled><i class="fa-solid fa-download"></i> Exportar JSON</button>
-                            </div>
-                            <div class="results-meta" id="sparql-results-meta">
-                                Consulta no ejecutada.
-                            </div>
-                            <div class="table-container flex-grow" id="sparql-results-table-container">
-                                <table class="table" id="sparql-results-table">
-                                    <thead>
+                        <div class="grid-container">
+                            <table class="premium-grid">
+                                <thead>
+                                    <tr>
+                                        <th onClick=${() => handleSort('id')}>ID ${sortField === 'id' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</th>
+                                        <th onClick=${() => handleSort('label')}>Etiqueta ${sortField === 'label' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</th>
+                                        <th onClick=${() => handleSort('barrio')}>Barrio ${sortField === 'barrio' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</th>
+                                        <th onClick=${() => handleSort('area')}>Área ${sortField === 'area' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</th>
+                                        <th onClick=${() => handleSort('valorSuelo')}>Valor Suelo ${sortField === 'valorSuelo' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</th>
+                                        <th>Valor m²</th>
+                                        <th onClick=${() => handleSort('destino')}>Destino ${sortField === 'destino' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${sortedData.length === 0 ? html`
                                         <tr>
-                                            <th>Sujeto</th>
-                                            <th>Predicado</th>
-                                            <th>Objeto</th>
+                                            <td colspan="7" style=${{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                                                No se encontraron parcelas que coincidan con los filtros aplicados.
+                                            </td>
                                         </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr>
-                                            <td colspan="3" class="text-muted text-center">Presione "Ejecutar Consulta" para ver los resultados aquí.</td>
+                                    ` : sortedData.map(item => html`
+                                        <tr key=${item.id}>
+                                            <td style=${{ fontWeight: '600', color: 'var(--accent-primary)' }}>${item.id}</td>
+                                            <td title=${item.entity} style=${{ maxWidth: '200px' }}>${item.label}</td>
+                                            <td>${item.barrio}</td>
+                                            <td class="editable-cell" onDoubleClick=${() => handleCellDoubleClick(item.id, 'area', item.area)}>
+                                                ${editingCell?.id === item.id && editingCell?.field === 'area' ? html`
+                                                    <input 
+                                                        type="number"
+                                                        class="cell-edit-input"
+                                                        value=${editValue}
+                                                        onChange=${(e) => setEditValue(e.target.value)}
+                                                        onBlur=${handleCellSave}
+                                                        onKeyDown=${(e) => e.key === 'Enter' && handleCellSave()}
+                                                        autoFocus
+                                                    />
+                                                ` : `${item.area} m²`}
+                                            </td>
+                                            <td class="editable-cell" onDoubleClick=${() => handleCellDoubleClick(item.id, 'valorSuelo', item.valorSuelo)}>
+                                                ${editingCell?.id === item.id && editingCell?.field === 'valorSuelo' ? html`
+                                                    <input 
+                                                        type="number"
+                                                        class="cell-edit-input"
+                                                        value=${editValue}
+                                                        onChange=${(e) => setEditValue(e.target.value)}
+                                                        onBlur=${handleCellSave}
+                                                        onKeyDown=${(e) => e.key === 'Enter' && handleCellSave()}
+                                                        autoFocus
+                                                    />
+                                                ` : `u$s ${item.valorSuelo.toLocaleString()}`}
+                                            </td>
+                                            <td style=${{ fontFamily: 'monospace', fontWeight: '600' }}>
+                                                u$s ${Math.round(item.valorSuelo / item.area).toLocaleString()}
+                                            </td>
+                                            <td class="editable-cell" onDoubleClick=${() => handleCellDoubleClick(item.id, 'destino', item.destino)}>
+                                                ${editingCell?.id === item.id && editingCell?.field === 'destino' ? html`
+                                                    <select 
+                                                        class="cell-edit-input"
+                                                        value=${editValue}
+                                                        onChange=${(e) => setEditValue(e.target.value)}
+                                                        onBlur=${handleCellSave}
+                                                        onKeyDown=${(e) => e.key === 'Enter' && handleCellSave()}
+                                                        autoFocus
+                                                    >
+                                                        <option value="Residencial">Residencial</option>
+                                                        <option value="Comercial">Comercial</option>
+                                                        <option value="Baldío">Baldío</option>
+                                                    </select>
+                                                ` : html`<span class="cell-badge badge-${item.destino.toLowerCase()}">${item.destino}</span>`}
+                                            </td>
                                         </tr>
-                                    </tbody>
-                                </table>
-                            </div>
+                                    `)}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
-                </section>
-                
-                <!-- Vista 4: Red de Relaciones (Vis.js) -->
-                <section class="view-panel" id="graph-view">
-                    <!-- Overlay de Bloqueo -->
-                    <div class="repo-lock-overlay">
-                        <i class="fa-solid fa-lock lock-icon"></i>
-                        <h3>Repositorio no Conectado</h3>
-                        <p>Para explorar interactivamente la Red de Relaciones del grafo, primero debe seleccionar y conectar un repositorio activo desde el Panel General.</p>
-                        <button class="btn btn-primary btn-go-to-dashboard">Ir al Panel General</button>
-                    </div>
-                    
-                    <div class="view-header">
-                        <h1>Red de Relaciones</h1>
-                        <p class="subtitle">Visualice el grafo de forma interactiva con nodos y aristas de conexión</p>
-                    </div>
-                    
-                    <div class="graph-workspace-layout">
-                        <!-- Panel de configuración del grafo -->
-                        <div class="graph-sidebar">
-                            <h3>Controles de Red</h3>
-                            <div class="form-group">
-                                <label for="graph-root-uri">URI Nodo Inicial:</label>
-                                <input type="text" id="graph-root-uri" class="form-control" placeholder="Seleccione desde explorador o pegue URI...">
-                            </div>
-                            <button class="btn btn-primary btn-block" id="btn-load-graph-root">Cargar Red desde Nodo</button>
-                            
-                            <div class="graph-legend">
-                                <h4>Leyenda de Nodos</h4>
-                                <ul class="legend-list">
-                                    <li><span class="legend-color node-color-realestate"></span> RealEstate (Inmueble)</li>
-                                    <li><span class="legend-color node-color-feature"></span> Feature (Propiedad)</li>
-                                    <li><span class="legend-color node-color-space"></span> Space / Region (Lugar)</li>
-                                    <li><span class="legend-color node-color-literal"></span> Valor Literal (Texto/Número)</li>
-                                    <li><span class="legend-color node-color-other"></span> Otro Recurso</li>
-                                </ul>
-                            </div>
-                            
-                            <div class="graph-instructions">
-                                <p><i class="fa-solid fa-circle-info"></i> <strong>Instrucciones:</strong></p>
-                                <ul>
-                                    <li>Haga doble clic sobre un nodo para expandir sus relaciones vecinas.</li>
-                                    <li>Haga clic en un nodo para seleccionarlo y ver sus propiedades en el explorador.</li>
-                                    <li>Puede arrastrar nodos para reorganizar el lienzo.</li>
-                                </ul>
-                            </div>
-                        </div>
-                        
-                        <!-- Lienzo del grafo -->
-                        <div class="graph-canvas-container">
-                            <div id="graph-network-canvas">
-                                <div class="canvas-placeholder">
-                                    <i class="fa-solid fa-diagram-project placeholder-icon"></i>
-                                    <p>Ingrese un nodo inicial o explore para interactuar con la red.</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-                
-                <!-- Vista 5: Mapa Geográfico (Leaflet) -->
-                <section class="view-panel" id="map-view">
-                    <!-- Overlay de Bloqueo -->
-                    <div class="repo-lock-overlay">
-                        <i class="fa-solid fa-lock lock-icon"></i>
-                        <h3>Repositorio no Conectado</h3>
-                        <p>Para visualizar en el Mapa Geográfico los inmuebles y coordenadas de la ontología, primero debe seleccionar y conectar un repositorio activo desde el Panel General.</p>
-                        <button class="btn btn-primary btn-go-to-dashboard">Ir al Panel General</button>
-                    </div>
-                    
-                    <div class="view-header">
-                        <h1>Mapa Geográfico</h1>
-                        <p class="subtitle">Localización espacial de las entidades y recursos del grafo de conocimiento</p>
-                    </div>
-                    
-                    <div class="map-workspace-layout">
-                        <!-- Barra de estadísticas o filtros de mapa -->
-                        <div class="map-sidebar">
-                            <h3>Entidades con Ubicación</h3>
-                            <p class="text-muted">Búsqueda de inmuebles o puntos geográficos definidos mediante la ontología.</p>
-                            <button class="btn btn-primary btn-block" id="btn-load-map-markers">Cargar Marcadores en Mapa</button>
-                            <div class="map-legend">
-                                <h4>Filtro de Clases</h4>
-                                <div class="form-check-group" id="map-filters-group">
-                                    <span class="text-muted" style="font-size:12px">Cargue marcadores para ver filtros disponibles.</span>
-                                </div>
-                            </div>
-                            <div class="marker-list-container">
-                                <h4>Lista de Ubicaciones (<span id="map-marker-count">0</span>)</h4>
-                                <ul class="marker-list" id="map-marker-list">
-                                    <li class="text-muted">Haga clic en 'Cargar Marcadores' para escanear el repositorio.</li>
-                                </ul>
-                            </div>
-                        </div>
-                        
-                        <!-- Lienzo del mapa -->
-                        <div class="map-canvas-container">
-                            <div id="map-leaflet-canvas"></div>
-                        </div>
-                    </div>
-                </section>
-                
-            </div>
-        </main>
-    </div>
-    
-    
-    <!-- Diálogo Modal para Renombrar Componentes (Modo Desarrollo) -->
-    <div id="dev-rename-dialog" class="md-dialog-overlay" style="display: none;">
-        <div class="md-dialog-card">
-            <h3 class="md-dialog-title">
-                <span class="material-symbols-outlined">edit_note</span>
-                Renombrar Componente
-            </h3>
-            <div class="md-dialog-content">
-                <p>Asigne un nombre descriptivo o alias personalizado para facilitar la comunicación:</p>
-                <div class="md-input-group">
-                    <label for="dev-dialog-input-name">Nombre Personalizado:</label>
-                    <input type="text" id="dev-dialog-input-name" class="md-text-field" placeholder="Ej. #fileOptions (Opciones de Archivos)">
                 </div>
-                <p class="md-dialog-subtext">ID por defecto: <span id="dev-dialog-default-id"></span></p>
-                <p class="md-dialog-subtext">Nombre original: <span id="dev-dialog-default-name"></span></p>
-            </div>
-            <div class="md-dialog-actions">
-                <button class="md-btn md-btn-text" id="btn-dev-dialog-cancel">Cancelar</button>
-                <button class="md-btn md-btn-text" id="btn-dev-dialog-reset" style="color: var(--md-sys-color-error);">Restablecer</button>
-                <button class="md-btn md-btn-filled" id="btn-dev-dialog-save">Guardar</button>
-            </div>
-        </div>
-    </div>
+            `;
+        }
 
-    <!-- Diálogo Modal para Login de Administradores -->
-    <div id="admin-login-dialog" class="md-dialog-overlay" style="display: none;">
-        <div class="md-dialog-card">
-            <h3 class="md-dialog-title">
-                <span class="material-symbols-outlined">shield_person</span>
-                Acceso Administrador
-            </h3>
-            <div class="md-dialog-content">
-                <p>Ingrese sus credenciales de administrador para desbloquear los privilegios de configuración:</p>
-                <div class="md-input-group">
-                    <label for="admin-login-username">Usuario:</label>
-                    <input type="text" id="admin-login-username" class="md-text-field" placeholder="Nombre de usuario" value="admin">
-                </div>
-                <div class="md-input-group">
-                    <label for="admin-login-password">Contraseña:</label>
-                    <input type="password" id="admin-login-password" class="md-text-field" placeholder="Contraseña">
-                </div>
-                <div id="admin-login-error-msg" class="text-danger" style="display: none; font-size: 13px; margin-top: 4px;"></div>
-            </div>
-            <div class="md-dialog-actions">
-                <button class="md-btn md-btn-text" id="btn-admin-login-cancel">Cancelar</button>
-                <button class="md-btn md-btn-filled" id="btn-admin-login-submit">Ingresar</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Script Principal -->
-    <script type="module" src="/src/main.js"></script>
+        // Render React Application
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(html`<${App} />`);
+    </script>
 </body>
 </html>
