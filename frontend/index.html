@@ -1400,7 +1400,7 @@
                             ${sortedData.length} Registros
                         </div>
                         
-                        <div class="dev-mode-toggle-container">
+                        <div class="dev-mode-toggle-container" onClick=${(e) => e.stopPropagation()}>
                             <label class="md-switch-label" htmlFor="dev-mode-checkbox">
                                 <i class="fa-solid fa-bug dev-icon"></i>
                                 <span>Modo Dev</span>
