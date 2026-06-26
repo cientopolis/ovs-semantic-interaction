@@ -69,3 +69,14 @@ def read_db_test():
         "message": "OVS Semantic API is running. (frontend/db-test.html no encontrado)",
         "docs_url": "/docs"
     }
+
+# Servir dev-inspector-test.html para pruebas de inspector visual
+@app.get("/dev-inspector-test")
+def read_dev_inspector_test():
+    inspector_test_path = os.path.join(frontend_dir, "dev-inspector-test.html")
+    if os.path.exists(inspector_test_path):
+        return FileResponse(inspector_test_path)
+    return {
+        "message": "OVS Semantic API is running. (frontend/dev-inspector-test.html no encontrado)",
+        "docs_url": "/docs"
+    }
