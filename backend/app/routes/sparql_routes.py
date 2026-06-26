@@ -62,3 +62,18 @@ async def get_geolocalized(
         return entities
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/graph/{repo_id}/node")
+async def get_graph_node(
+    repo_id: str,
+    uri: str = Query(..., description="IRI absoluta del nodo a expandir en el grafo"),
+    service: GraphDBService = Depends(get_graphdb_service)
+):
+    """Obtiene las relaciones salientes de un nodo para el inspector de grafo de conocimiento.
+    Retorna triples con tipo de objeto (uri/literal/bnode) para renderizar en Vis.js."""
+    try:
+        result = await service.get_node_relations_by_iri(repo_id, uri)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+

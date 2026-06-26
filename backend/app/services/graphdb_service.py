@@ -239,17 +239,50 @@ class GraphDBService:
         } LIMIT 5000
         """
         try:
-            res = await self.execute_query(repo_id, query)
+            result = await self.execute_query(repo_id, query)
             entities = []
-            for b in res.get("results", {}).get("bindings", []):
+            for b in result.get("results", {}).get("bindings", []):
                 entities.append({
                     "entity": b["entity"]["value"],
-                    "label": b.get("label", {}).get("value", b["entity"]["value"].split("#")[-1]),
+                    "label": b.get("label", {}).get("value"),
                     "type": b["type"]["value"],
-                    "coords": b["coords"]["value"],
-                    "geometry": ""
+                    "coords": b.get("coords", {}).get("value"),
                 })
             return entities
         except Exception as e:
-            print(f"Error al obtener entidades geolocalizadas: {e}")
-            return []
+            raise Exception(f"Error al obtener entidades geolocalizadas: {str(e)}")
+
+    async def get_node_relations_by_iri(self, repo_id: str, entity_uri: str) -> Dict[str, Any]:
+        """Obtiene las relaciones salientes de un nodo IRI para el inspector de grafo.
+        Retorna la lista de triples (sujeto=entity_uri, predicado, objeto) con metadatos de tipo."""
+        query = f"""
+        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+        SELECT ?p ?o ?oLabel ?oType WHERE {{
+            <{entity_uri}> ?p ?o .
+            BIND(
+                IF(isBlank(?o), "bnode",
+                    IF(isLiteral(?o), "literal", "uri")
+                ) AS ?oType
+            )
+            OPTIONAL {{
+                ?o rdfs:label ?oLabel .
+                FILTER(lang(?oLabel) = "es" || lang(?oLabel) = "es-ar" || lang(?oLabel) = "")
+            }}
+        }} LIMIT 500
+        """
+        try:
+            result = await self.execute_query(repo_id, query)
+            triples = []
+            for b in result.get("results", {}).get("bindings", []):
+                triples.append({
+                    "predicate": b["p"]["value"],
+                    "predicate_local": b["p"]["value"].split("#")[-1].split("/")[-1],
+                    "object": b["o"]["value"],
+                    "object_type": b.get("oType", {}).get("value", "uri"),
+                    "object_label": b.get("oLabel", {}).get("value"),
+                    "object_datatype": b["o"].get("datatype"),
+                    "object_lang": b["o"].get("xml:lang"),
+                })
+            return {"uri": entity_uri, "triples": triples}
+        except Exception as e:
+            raise Exception(f"Error al obtener relaciones del nodo: {str(e)}")
