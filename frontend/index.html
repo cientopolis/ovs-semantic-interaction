@@ -1453,7 +1453,8 @@
                                 valorSuelo,
                                 destino,
                                 lat,
-                                lng
+                                lng,
+                                rawCoords: ent.coords
                             };
                         });
                         setData(parsed);
@@ -1651,12 +1652,21 @@
                         });
                         
                         marker.bindPopup(`
-                            <div style="font-family: sans-serif; padding: 4px;">
+                            <div style="font-family: sans-serif; padding: 4px; min-width: 200px;">
                                 <h4 style="margin: 0 0 6px 0; font-size:14px; font-weight:600">${item.label}</h4>
                                 <p style="margin: 2px 0; font-size:11px"><strong>Barrio:</strong> ${item.barrio}</p>
                                 <p style="margin: 2px 0; font-size:11px"><strong>Área:</strong> ${item.area} m²</p>
                                 <p style="margin: 2px 0; font-size:11px"><strong>Valor Suelo:</strong> u$s ${item.valorSuelo.toLocaleString()}</p>
                                 <p style="margin: 2px 0; font-size:11px"><strong>Destino:</strong> ${item.destino}</p>
+                                <hr style="margin: 6px 0; border: 0; border-top: 1px solid var(--border-light, #ddd);" />
+                                <p style="margin: 2px 0; font-size:10px; color: var(--text-secondary, #666);">
+                                    <strong>Leaflet Lat/Lng:</strong><br/>
+                                    <span style="font-family: monospace;">${item.lat.toFixed(6)}, ${item.lng.toFixed(6)}</span>
+                                </p>
+                                <p style="margin: 2px 0; font-size:10px; color: var(--text-secondary, #666); word-break: break-all;">
+                                    <strong>Raw GraphDB Coords:</strong><br/>
+                                    <span style="font-family: monospace; font-size: 9px;">${item.rawCoords || 'Desconocido'}</span>
+                                </p>
                             </div>
                         `);
                         
