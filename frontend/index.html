@@ -1001,21 +1001,27 @@
             return closest;
         }
 
-        // Helper to parse WKT POINT(X Y)
+        // Helper to parse WKT POINT(X Y) -> [lat, lng]
         function parseWKT(coordStr) {
             if (!coordStr) return null;
             let cleanStr = coordStr.trim().replace(/<[^>]+>\s*/g, '').trim();
             const wktRegex = /POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/i;
             const match = cleanStr.match(wktRegex);
             if (match) {
-                const val1 = parseFloat(match[1]); // lon
-                const val2 = parseFloat(match[2]); // lat
-                // Argentina coordinates: lat ~ -25 to -55, lon ~ -53 to -73
-                if (val1 < -50 && val2 > -55 && val2 < -25) {
+                const val1 = parseFloat(match[1]); // lon or lat
+                const val2 = parseFloat(match[2]); // lat or lon
+                
+                // Argentina bounds: Latitud [-56, -20], Longitud [-74, -53]
+                // standard: val1 = lon (~ -58), val2 = lat (~ -34) -> returns [val2, val1]
+                if (val1 < -50 && val1 > -75 && val2 < -20 && val2 > -57) {
                     return [val2, val1];
-                } else if (val2 < -50 && val1 > -55 && val1 < -25) {
+                }
+                // reversed: val1 = lat (~ -34), val2 = lon (~ -58) -> returns [val1, val2]
+                if (val2 < -50 && val2 > -75 && val1 < -20 && val1 > -57) {
                     return [val1, val2];
                 }
+                
+                // Default fallback: WKT Standard ordering (lon, lat) -> Leaflet expects (lat, lon)
                 return [val2, val1];
             }
             const parts = cleanStr.split(/[\s,]+/);
@@ -1023,7 +1029,7 @@
                 const val1 = parseFloat(parts[0]);
                 const val2 = parseFloat(parts[1]);
                 if (!isNaN(val1) && !isNaN(val2)) {
-                    if (val1 < -50 && val2 > -55 && val2 < -25) {
+                    if (val1 < -50 && val1 > -75 && val2 < -20 && val2 > -57) {
                         return [val2, val1];
                     }
                     return [val1, val2];
