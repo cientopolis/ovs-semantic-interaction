@@ -1578,13 +1578,10 @@ input:checked + .slider:before {
    Knowledge Graph Inspector  (kg-* prefix, respects dark/light/pastel themes)
    ═══════════════════════════════════════════════════════════════════════════ */
 
+/* kg-inspector-workspace: layout defined inline in index.html (position:absolute) */
 .kg-inspector-workspace {
-    flex-direction: column;
-    width: 100%;
-    height: 100%;
     background-color: var(--bg-base);
     overflow: hidden;
-    position: relative;
 }
 .kg-toolbar {
     padding: 10px 20px;
