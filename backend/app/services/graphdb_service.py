@@ -186,7 +186,8 @@ class GraphDBService:
 
     async def get_geolocalized_entities(self, repo_id: str) -> List[Dict[str, Any]]:
         """Obtiene EXCLUSIVAMENTE entidades de tipo RealEstate (y sus subclases) con geolocalización.
-        Las coordenadas se obtienen navegando rec:includes hacia el espacio con geo:hasGeometry."""
+        Las coordenadas se obtienen navegando rec:includes hacia el espacio con geo:hasGeometry.
+        Agrupa por entidad para concatenar múltiples tipos y obtener sus etiquetas en español/neutras."""
         query = """
         PREFIX : <http://www.semanticweb.org/luciana/ontologies/2024/8/inmontology#>
         PREFIX rec: <https://w3id.org/rec#>
@@ -196,7 +197,13 @@ class GraphDBService:
         PREFIX pronto: <https://raw.githubusercontent.com/fdioguardi/pronto/main/ontology/pronto.owl#>
         PREFIX gr: <http://purl.org/goodrelations/v1#>
         
-        SELECT DISTINCT ?entity ?label ?type ?coords ?areaVal WHERE {
+        SELECT ?entity 
+               (SAMPLE(?label) AS ?labelVal) 
+               (GROUP_CONCAT(DISTINCT ?type; separator=";") AS ?types) 
+               (GROUP_CONCAT(DISTINCT ?typeLabel; separator=";") AS ?typeLabels) 
+               (SAMPLE(?coords) AS ?coordsVal) 
+               (SAMPLE(?areaVal) AS ?areaValSample) 
+        WHERE {
             # La entidad debe ser de tipo RealEstate o subclase de ella
             ?entity a ?type .
             ?type rdfs:subClassOf* rec:RealEstate .
@@ -257,7 +264,15 @@ class GraphDBService:
                 ?entity rdfs:label ?label .
                 FILTER(lang(?label) = "es" || lang(?label) = "es-ar" || lang(?label) = "")
             }
-        } LIMIT 5000
+
+            # Obtener etiqueta de la clase/tipo para el subtipo
+            OPTIONAL {
+                ?type rdfs:label ?typeLabel .
+                FILTER(lang(?typeLabel) = "es" || lang(?typeLabel) = "es-ar" || lang(?typeLabel) = "")
+            }
+        }
+        GROUP BY ?entity
+        LIMIT 5000
         """
         try:
             result = await self.execute_query(repo_id, query)
@@ -265,10 +280,11 @@ class GraphDBService:
             for b in result.get("results", {}).get("bindings", []):
                 entities.append({
                     "entity": b["entity"]["value"],
-                    "label": b.get("label", {}).get("value"),
-                    "type": b["type"]["value"],
-                    "coords": b.get("coords", {}).get("value"),
-                    "area": b.get("areaVal", {}).get("value"),
+                    "label": b.get("labelVal", {}).get("value"),
+                    "types": b.get("types", {}).get("value"),
+                    "typeLabels": b.get("typeLabels", {}).get("value"),
+                    "coords": b.get("coordsVal", {}).get("value"),
+                    "area": b.get("areaValSample", {}).get("value"),
                 })
             return entities
         except Exception as e:

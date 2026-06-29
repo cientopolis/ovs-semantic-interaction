@@ -1392,12 +1392,10 @@
                 points: true,
                 heatmap: false,
                 hexbin: false,
-                choropleth: true,
-                extrusion3D: false
+                choropleth: true
             });
             
             // Filter Range States
-            const [priceFilter, setPriceFilter] = React.useState(1500000);
             const [areaFilter, setAreaFilter] = React.useState(50);
             
             // Sorting & Editing states
@@ -1465,18 +1463,47 @@
                             
                             // Extract real area if returned, otherwise set as 'N/A'
                             const area = ent.area ? parseFloat(ent.area) : 'N/A';
-                            const valorSuelo = 'N/A';
                             const destino = 'N/A';
                             const barrio = 'N/A';
+
+                            // Process types and typeLabels to find subclass and translate it
+                            const rawTypes = ent.types ? ent.types.split(';') : [];
+                            const rawLabels = ent.typeLabels ? ent.typeLabels.split(';') : [];
+                            
+                            const classLabelMap = {
+                                'Apartment': 'Departamento',
+                                'House': 'Casa',
+                                'CondominiumUnit': 'Lote PH',
+                                'ParkingLot': 'Cochera',
+                                'Store': 'Local comercial',
+                                'Warehouse': 'Galpón',
+                                'Farm': 'Campo',
+                                'Land': 'Terreno',
+                                'Hotel': 'Hotel',
+                                'Lot': 'Lote'
+                            };
+
+                            let selectedType = 'RealEstate';
+                            let selectedLabel = 'Inmueble';
+
+                            for (let i = 0; i < rawTypes.length; i++) {
+                                const tUri = rawTypes[i];
+                                const tName = tUri.split('#').pop().split('/').pop();
+                                if (classLabelMap[tName]) {
+                                    selectedType = tName;
+                                    selectedLabel = rawLabels[i] || classLabelMap[tName];
+                                    break;
+                                }
+                            }
                             
                             return {
                                 id: `PRC-${idx.toString().padStart(3, '0')}`,
                                 entity: ent.entity,
                                 label,
-                                type: ent.type,
+                                type: selectedType,
+                                typeLabel: selectedLabel,
                                 barrio,
                                 area,
-                                valorSuelo,
                                 destino,
                                 lat,
                                 lng,
@@ -1547,47 +1574,39 @@
                 const filtered = data.filter(item => {
                     const matchesSearch = item.label.toLowerCase().includes(searchQuery.toLowerCase()) || 
                                           (item.barrio && item.barrio.toLowerCase().includes(searchQuery.toLowerCase()));
-                    const matchesPrice = item.valorSuelo === 'N/A' ? true : item.valorSuelo <= priceFilter;
                     const matchesArea = item.area === 'N/A' ? true : item.area >= areaFilter;
-                    return matchesSearch && matchesPrice && matchesArea;
+                    return matchesSearch && matchesArea;
                 });
 
-                // Calculate averages per Neighborhood for Choropleth / 3D Extrusions
+                // Calculate counts per Neighborhood for Choropleth
                 const neighborhoodStats = {};
                 filtered.forEach(item => {
                     if (item.barrio === 'N/A') return;
                     if (!neighborhoodStats[item.barrio]) {
-                        neighborhoodStats[item.barrio] = { count: 0, totalPrice: 0, totalArea: 0 };
+                        neighborhoodStats[item.barrio] = { count: 0, totalArea: 0 };
                     }
                     neighborhoodStats[item.barrio].count++;
-                    const priceVal = item.valorSuelo === 'N/A' ? 0 : parseFloat(item.valorSuelo);
                     const areaVal = item.area === 'N/A' ? 0 : parseFloat(item.area);
-                    neighborhoodStats[item.barrio].totalPrice += priceVal;
                     neighborhoodStats[item.barrio].totalArea += areaVal;
-                });
-                
-                Object.keys(neighborhoodStats).forEach(name => {
-                    const stats = neighborhoodStats[name];
-                    stats.avgM2Price = stats.totalArea > 0 ? Math.round(stats.totalPrice / stats.totalArea) : 0;
                 });
 
                 // Render Layers in order
                 
-                // 1. Choropleth Layer
+                // 1. Choropleth Layer (Colored by Density / Count of parcels)
                 if (layers.choropleth) {
                     Object.entries(NEIGHBORHOODS).forEach(([name, neigh]) => {
                         const stats = neighborhoodStats[name];
-                        const avgPrice = stats ? stats.avgM2Price : 0;
+                        const count = stats ? stats.count : 0;
                         
-                        // Color scale based on avg value per m2
+                        // Color scale based on parcel density
                         let color = '#cbd5e1'; // transparent fallback
                         let fillOpacity = 0.05;
                         
-                        if (avgPrice > 0) {
-                            fillOpacity = 0.5;
-                            if (avgPrice < 1500) color = '#c084fc'; // low value
-                            else if (avgPrice < 3500) color = '#818cf8'; // medium
-                            else color = '#38bdf8'; // high
+                        if (count > 0) {
+                            fillOpacity = 0.45;
+                            if (count < 5) color = '#c084fc'; // low density (purple)
+                            else if (count < 15) color = '#818cf8'; // medium density (indigo)
+                            else color = '#38bdf8'; // high density (blue)
                         }
                         
                         const polygon = L.rectangle(neigh.bounds, {
@@ -1601,8 +1620,7 @@
                         polygon.bindPopup(`
                             <div style="font-family: sans-serif; padding: 4px;">
                                 <h4 style="margin: 0 0 6px 0; color: var(--accent-primary)">Barrio: ${name}</h4>
-                                <p style="margin: 3px 0 0 0; font-size:12px"><strong>Registros:</strong> ${stats ? stats.count : 0}</p>
-                                <p style="margin: 3px 0 0 0; font-size:12px"><strong>Suelo Promedio:</strong> u$s ${stats ? stats.avgM2Price.toLocaleString() : 0} /m²</p>
+                                <p style="margin: 3px 0 0 0; font-size:12px"><strong>Parcelas registradas:</strong> ${count}</p>
                             </div>
                         `);
                         
@@ -1629,13 +1647,13 @@
                     });
                     
                     Object.values(bins).forEach(bin => {
-                        // Create regular hexagon polygon centered on bin
+                        // Create hexagon corners
                         const hexCorners = [];
                         for (let i = 0; i < 6; i++) {
                             const angle = (i * 60 * Math.PI) / 180;
                             hexCorners.push([
-                                bin.lat + (step / 2) * Math.sin(angle),
-                                bin.lng + (step / 1.7) * Math.cos(angle)
+                                bin.lat + (step / Math.sqrt(3)) * Math.sin(angle),
+                                bin.lng + (step / Math.sqrt(3)) * Math.cos(angle)
                             ]);
                         }
                         
@@ -1669,19 +1687,18 @@
                     });
                 }
 
-                // 4. Points Layer
+                // 4. Points Layer (Colored by subclass type)
                 if (layers.points) {
                     filtered.forEach(item => {
                          const marker = L.circleMarker([item.lat, item.lng], {
                              radius: 7,
-                             fillColor: item.destino === 'Residencial' ? '#3b82f6' : (item.destino === 'Comercial' ? '#10b981' : (item.destino === 'Baldío' ? '#ef4444' : '#6b7280')),
+                             fillColor: item.type === 'House' ? '#fbbf24' : (item.type === 'Apartment' ? '#3b82f6' : (item.type === 'CondominiumUnit' ? '#10b981' : (item.type === 'Store' ? '#ec4899' : (item.type === 'Warehouse' ? '#8b5cf6' : '#6b7280')))),
                              fillOpacity: 0.9,
                              color: '#ffffff',
                              weight: 1.5
                          });
                          
                          const areaText = item.area === 'N/A' ? 'N/A' : `${item.area} m²`;
-                         const valorText = item.valorSuelo === 'N/A' ? 'N/A' : `u$s ${item.valorSuelo.toLocaleString()}`;
 
                          marker.bindPopup(`
                              <div style="font-family: sans-serif; padding: 4px; min-width: 200px;">
@@ -1693,86 +1710,17 @@
                                          ${item.label}
                                      </a>
                                  </h4>
+                                 <p style="margin: 2px 0; font-size:11px"><strong>Clase de Inmueble:</strong> ${item.typeLabel || item.type}</p>
                                  <p style="margin: 2px 0; font-size:11px"><strong>Barrio:</strong> ${item.barrio}</p>
                                  <p style="margin: 2px 0; font-size:11px"><strong>Área:</strong> ${areaText}</p>
-                                 <p style="margin: 2px 0; font-size:11px"><strong>Valor Suelo:</strong> ${valorText}</p>
                                  <p style="margin: 2px 0; font-size:11px"><strong>Destino:</strong> ${item.destino}</p>
-                                <hr style="margin: 6px 0; border: 0; border-top: 1px solid var(--border-light, #ddd);" />
-                                <p style="margin: 2px 0; font-size:10px; color: var(--text-secondary, #666);">
-                                    <strong>Leaflet Lat/Lng:</strong><br/>
-                                    <span style="font-family: monospace;">${item.lat.toFixed(6)}, ${item.lng.toFixed(6)}</span>
-                                </p>
-                                <p style="margin: 2px 0; font-size:10px; color: var(--text-secondary, #666); word-break: break-all;">
-                                    <strong>Raw GraphDB Coords:</strong><br/>
-                                    <span style="font-family: monospace; font-size: 9px;">${item.rawCoords || 'Desconocido'}</span>
-                                </p>
-                            </div>
-                        `);
-                        
-                        layersGroup.addLayer(marker);
-                    });
+                             </div>
+                         `);
+                         
+                         layersGroup.addLayer(marker);
+                     });
                 }
-
-                // 5. 3D Extrusion Layer (Axonometric pseudo 3D heights)
-                if (layers.extrusion3D) {
-                    Object.entries(NEIGHBORHOODS).forEach(([name, neigh]) => {
-                        const stats = neighborhoodStats[name];
-                        if (!stats || stats.count === 0) return;
-                        
-                        // Shift/offset factor representing simulated 3D axonometric extrusion height
-                        const offset = stats.avgM2Price / 100000.0; // scale down
-                        
-                        const baseBounds = neigh.bounds;
-                        // Top polygon bounds shifted
-                        const topBounds = [
-                            [baseBounds[0][0] + offset, baseBounds[0][1] + offset],
-                            [baseBounds[1][0] + offset, baseBounds[1][1] + offset]
-                        ];
-                        
-                        // Draw vertical connection panels for 3D simulation
-                        const createVerticalFace = (p1_base, p2_base, p1_top, p2_top) => {
-                            return L.polygon([p1_base, p2_base, p2_top, p1_top], {
-                                color: 'rgba(0,0,0,0.15)',
-                                weight: 1,
-                                fillColor: neigh.color,
-                                fillOpacity: 0.3
-                            });
-                        };
-                        
-                        const cBase = [
-                            [baseBounds[0][0], baseBounds[0][1]],
-                            [baseBounds[0][0], baseBounds[1][1]],
-                            [baseBounds[1][0], baseBounds[1][1]],
-                            [baseBounds[1][0], baseBounds[0][1]]
-                        ];
-                        
-                        const cTop = [
-                            [topBounds[0][0], topBounds[0][1]],
-                            [topBounds[0][0], topBounds[1][1]],
-                            [topBounds[1][0], topBounds[1][1]],
-                            [topBounds[1][0], topBounds[0][1]]
-                        ];
-
-                        // Connect base points to top points
-                        for (let i = 0; i < 4; i++) {
-                            const next = (i + 1) % 4;
-                            layersGroup.addLayer(createVerticalFace(cBase[i], cBase[next], cTop[i], cTop[next]));
-                        }
-
-                        // Top cap polygon
-                        const topPolygon = L.polygon(cTop, {
-                            color: neigh.color,
-                            weight: 2,
-                            fillColor: '#00e5ff',
-                            fillOpacity: 0.5
-                        });
-                        
-                        topPolygon.bindPopup(`<strong>${name} Altura de Suelo Extruida</strong>: ${stats.avgM2Price.toLocaleString()} /m²`);
-                        layersGroup.addLayer(topPolygon);
-                    });
-                }
-                
-            }, [data, layers, priceFilter, areaFilter, searchQuery, mapReady]);
+            }, [data, layers, areaFilter, searchQuery, mapReady]);
 
             // Dispatch layout resize triggers to prevent Leaflet container clipping
             React.useEffect(() => {
@@ -1795,7 +1743,7 @@
                 const { id, field } = editingCell;
                 let finalVal = editValue;
                 
-                if (field === 'area' || field === 'valorSuelo') {
+                if (field === 'area') {
                     finalVal = parseFloat(editValue);
                     if (isNaN(finalVal)) return;
                 }
@@ -1822,9 +1770,8 @@
                 const filtered = data.filter(item => {
                     const matchesSearch = item.label.toLowerCase().includes(searchQuery.toLowerCase()) || 
                                           item.barrio.toLowerCase().includes(searchQuery.toLowerCase());
-                    const matchesPrice = item.valorSuelo <= priceFilter;
-                    const matchesArea = item.area >= areaFilter;
-                    return matchesSearch && matchesPrice && matchesArea;
+                    const matchesArea = item.area === 'N/A' ? true : item.area >= areaFilter;
+                    return matchesSearch && matchesArea;
                 });
                 
                 return [...filtered].sort((a, b) => {
@@ -1841,7 +1788,7 @@
                             : bVal - aVal;
                     }
                 });
-            }, [data, sortField, sortDirection, searchQuery, priceFilter, areaFilter]);
+            }, [data, sortField, sortDirection, searchQuery, areaFilter]);
 
             // Layout
             return html`
@@ -2034,35 +1981,10 @@
                                             onChange=${(e) => setLayers(prev => ({ ...prev, choropleth: e.target.checked }))} 
                                         />
                                     </label>
-                                    
-                                    <label class="layer-toggle">
-                                        <span>Simulación 3D Extruida</span>
-                                        <input 
-                                            type="checkbox" 
-                                            checked=${layers.extrusion3D} 
-                                            onChange=${(e) => setLayers(prev => ({ ...prev, extrusion3D: e.target.checked }))} 
-                                        />
-                                    </label>
                                 </div>
                                 
                                 <div class="control-section" ...${getDevProps('#attributeFiltersSection', 'Filtros de Atributo')}>
                                     <h4>Filtros de Atributo</h4>
-                                    
-                                    <div class="filter-group">
-                                        <div class="filter-label-row">
-                                            <span>Suelo Máx (u$s)</span>
-                                            <strong>${priceFilter.toLocaleString()}</strong>
-                                        </div>
-                                        <input 
-                                            type="range" 
-                                            class="filter-slider" 
-                                            min="100000" 
-                                            max="1500000" 
-                                            step="50000"
-                                            value=${priceFilter} 
-                                            onChange=${(e) => setPriceFilter(parseInt(e.target.value))} 
-                                        />
-                                    </div>
                                     
                                     <div class="filter-group">
                                         <div class="filter-label-row">
@@ -2103,7 +2025,7 @@
                             
                             <div style=${{ fontSize: '13px', color: 'var(--text-muted)' }}>
                                 <i class="fa-solid fa-circle-info" style=${{ marginRight: '6px' }}></i>
-                                Haga doble clic sobre una celda para editar el valor de Suelo, Área o Destino
+                                Haga doble clic sobre una celda para editar el valor de Área o Destino
                             </div>
                         </div>
                         
@@ -2115,15 +2037,13 @@
                                         <th onClick=${() => handleSort('label')}>Etiqueta ${sortField === 'label' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</th>
                                         <th onClick=${() => handleSort('barrio')}>Barrio ${sortField === 'barrio' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</th>
                                         <th onClick=${() => handleSort('area')}>Área ${sortField === 'area' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</th>
-                                        <th onClick=${() => handleSort('valorSuelo')}>Valor Suelo ${sortField === 'valorSuelo' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</th>
-                                        <th>Valor m²</th>
                                         <th onClick=${() => handleSort('destino')}>Destino ${sortField === 'destino' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     ${sortedData.length === 0 ? html`
                                         <tr>
-                                            <td colspan="7" style=${{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                                            <td colspan="5" style=${{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                                                 No se encontraron parcelas que coincidan con los filtros aplicados.
                                             </td>
                                         </tr>
@@ -2144,22 +2064,6 @@
                                                         autoFocus
                                                     />
                                                 ` : `${item.area} m²`}
-                                            </td>
-                                            <td class="editable-cell" onDoubleClick=${() => handleCellDoubleClick(item.id, 'valorSuelo', item.valorSuelo)}>
-                                                ${editingCell?.id === item.id && editingCell?.field === 'valorSuelo' ? html`
-                                                    <input 
-                                                        type="number"
-                                                        class="cell-edit-input"
-                                                        value=${editValue}
-                                                        onChange=${(e) => setEditValue(e.target.value)}
-                                                        onBlur=${handleCellSave}
-                                                        onKeyDown=${(e) => e.key === 'Enter' && handleCellSave()}
-                                                        autoFocus
-                                                    />
-                                                ` : `u$s ${item.valorSuelo.toLocaleString()}`}
-                                            </td>
-                                            <td style=${{ fontFamily: 'monospace', fontWeight: '600' }}>
-                                                u$s ${Math.round(item.valorSuelo / item.area).toLocaleString()}
                                             </td>
                                             <td class="editable-cell" onDoubleClick=${() => handleCellDoubleClick(item.id, 'destino', item.destino)}>
                                                 ${editingCell?.id === item.id && editingCell?.field === 'destino' ? html`
