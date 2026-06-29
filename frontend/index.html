@@ -1103,6 +1103,23 @@
             React.useEffect(function() {
                 if (visible && networkRef.current) setTimeout(function(){ networkRef.current.fit(); }, 80);
             }, [visible]);
+
+            // Listen to external inspect IRI triggers via custom event
+            React.useEffect(function() {
+                var handleExternalInspect = async function(e) {
+                    var targetIri = e.detail;
+                    if (!targetIri) return;
+                    setIriInput(targetIri);
+                    setLoading(true); setSelectedNode(null);
+                    expanded.current.clear(); nodesDS.current.clear(); edgesDS.current.clear();
+                    nodesDS.current.add({id:targetIri,iri:targetIri,label:kgShortLabel(targetIri),title:targetIri,nodeType:'center',color:KG_NODE_COLORS.center,size:28,font:{size:14,bold:true}});
+                    await expandUri(targetIri, true); setLoading(false);
+                };
+                window.addEventListener('kg-inspect-iri', handleExternalInspect);
+                return function() {
+                    window.removeEventListener('kg-inspect-iri', handleExternalInspect);
+                };
+            }, [repo]);
             function reanimatePhysics() {
                 if (networkRef.current) {
                     networkRef.current.setOptions({physics:{enabled:true}});
@@ -1396,7 +1413,7 @@
             const tileLayerRef = React.useRef(null);
             const layersGroupRef = React.useRef(null);
 
-            // Set HTML attribute for theme
+            // Set HTML attribute for theme and expose global inspect function
             React.useEffect(() => {
                 document.documentElement.setAttribute('data-theme', theme);
                 localStorage.setItem('appTheme', theme);
@@ -1405,6 +1422,15 @@
                 if (tileLayerRef.current && leafletMapRef.current) {
                     tileLayerRef.current.setUrl(THEME_MAP_STYLES[theme]);
                 }
+
+                // Global function to trigger graph inspect from outside React (Leaflet tooltips)
+                window.inspectIriInGraph = (iri) => {
+                    setView('graph');
+                    // Give panel time to mount/reveal then dispatch custom event
+                    setTimeout(() => {
+                        window.dispatchEvent(new CustomEvent('kg-inspect-iri', { detail: iri }));
+                    }, 120);
+                };
             }, [theme]);
 
             // Fetch Repositories on mount
@@ -1653,7 +1679,14 @@
                         
                         marker.bindPopup(`
                             <div style="font-family: sans-serif; padding: 4px; min-width: 200px;">
-                                <h4 style="margin: 0 0 6px 0; font-size:14px; font-weight:600">${item.label}</h4>
+                                <h4 style="margin: 0 0 6px 0; font-size:14px; font-weight:600">
+                                    <a href="javascript:void(0)" 
+                                       onclick="window.inspectIriInGraph('${item.entity}')" 
+                                       style="color: var(--accent-primary, #7c3aed); text-decoration: underline; font-weight: 700;"
+                                       title="Ver en Grafo KG">
+                                        ${item.label}
+                                    </a>
+                                </h4>
                                 <p style="margin: 2px 0; font-size:11px"><strong>Barrio:</strong> ${item.barrio}</p>
                                 <p style="margin: 2px 0; font-size:11px"><strong>Área:</strong> ${item.area} m²</p>
                                 <p style="margin: 2px 0; font-size:11px"><strong>Valor Suelo:</strong> u$s ${item.valorSuelo.toLocaleString()}</p>
