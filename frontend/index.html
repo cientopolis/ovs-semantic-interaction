@@ -16,6 +16,9 @@
     <!-- Leaflet.js para mapas -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <!-- Vis.js Network para el Inspector de Grafo de Conocimiento -->
+    <script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
     
     <!-- React & ReactDOM (UMD - Production) -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
@@ -1024,6 +1027,227 @@
             'pastel': 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
         };
 
+        // ─── Knowledge Graph Inspector Panel ──────────────────────────────────────
+        const KG_NODE_COLORS = {
+            center:  { background: '#7c3aed', border: '#a78bfa', hover: { background: '#8b5cf6', border: '#c4b5fd' } },
+            uri:     { background: '#1d4ed8', border: '#60a5fa', hover: { background: '#2563eb', border: '#93c5fd' } },
+            literal: { background: '#065f46', border: '#34d399', hover: { background: '#047857', border: '#6ee7b7' } },
+            bnode:   { background: '#92400e', border: '#fb923c', hover: { background: '#b45309', border: '#fcd34d' } },
+            classt:  { background: '#7f1d1d', border: '#f87171', hover: { background: '#991b1b', border: '#fca5a5' } },
+        };
+        function kgShortLabel(uri, maxLen) {
+            maxLen = maxLen || 30;
+            if (!uri) return '(vacío)';
+            var local = uri.includes('#') ? uri.split('#').pop() : uri.split('/').pop();
+            if (local && local.length > 2) return local.length > maxLen ? local.slice(0, maxLen) + '…' : local;
+            return uri.length > maxLen ? '…' + uri.slice(-maxLen) : uri;
+        }
+        function GraphInspectorPanel(props) {
+            var visible = props.visible, repo = props.repo, devProps = props.devProps;
+            var _st1 = React.useState(''), iriInput = _st1[0], setIriInput = _st1[1];
+            var _st2 = React.useState(false), loading = _st2[0], setLoading = _st2[1];
+            var _st3 = React.useState(null), selectedNode = _st3[0], setSelectedNode = _st3[1];
+            var _st4 = React.useState({nodes:0,edges:0}), graphStats = _st4[0], setGraphStats = _st4[1];
+            var _st5 = React.useState(null), toast = _st5[0], setToast = _st5[1];
+            var _st6 = React.useState(false), expandingNode = _st6[0], setExpandingNode = _st6[1];
+            var networkRef = React.useRef(null);
+            var nodesDS = React.useRef(null);
+            var edgesDS = React.useRef(null);
+            var expanded = React.useRef(new Set());
+            function showToast(msg) { setToast(msg); setTimeout(function(){ setToast(null); }, 2800); }
+            function updateStats() { setGraphStats({nodes: nodesDS.current.length, edges: edgesDS.current.length}); }
+            React.useEffect(function() {
+                var container = document.getElementById('kgGraphCanvas');
+                if (!container || networkRef.current) return;
+                var nodes = new vis.DataSet([]);
+                var edges = new vis.DataSet([]);
+                nodesDS.current = nodes; edgesDS.current = edges;
+                var network = new vis.Network(container, {nodes:nodes,edges:edges}, {
+                    nodes:{shape:'dot',size:18,font:{size:12,color:'#d4d8e1',face:'Outfit,sans-serif'},borderWidth:2,shadow:{enabled:true,size:6,color:'rgba(0,0,0,0.4)'}},
+                    edges:{width:1.5,color:{color:'#4b5563',hover:'#00e5ff',highlight:'#00e5ff'},font:{size:10,color:'#9ca3af',align:'middle',strokeWidth:0},arrows:{to:{enabled:true,scaleFactor:0.6}},smooth:{type:'continuous'}},
+                    interaction:{hover:true,tooltipDelay:200,zoomView:true,keyboard:true},
+                    physics:{enabled:true,solver:'forceAtlas2Based',forceAtlas2Based:{gravitationalConstant:-50,springLength:120,springConstant:0.08},stabilization:{iterations:150}}
+                });
+                networkRef.current = network;
+                network.on('click', function(params) {
+                    if (params.nodes.length === 0) { setSelectedNode(null); return; }
+                    setSelectedNode(nodes.get(params.nodes[0]));
+                });
+                network.on('doubleClick', function(params) {
+                    if (params.nodes.length === 0) return;
+                    var node = nodes.get(params.nodes[0]);
+                    if (!node) return;
+                    if (node.nodeType === 'literal') { showToast('Los literales no tienen relaciones para expandir.'); return; }
+                    if (node.nodeType === 'bnode') { triggerExpandBnode(node); } else { triggerExpandUri(node.iri); }
+                });
+                network.on('stabilizationIterationsDone', function(){ network.setOptions({physics:{enabled:false}}); });
+            }, []);
+            React.useEffect(function() {
+                if (visible && networkRef.current) setTimeout(function(){ networkRef.current.fit(); }, 80);
+            }, [visible]);
+            function reanimatePhysics() {
+                if (networkRef.current) {
+                    networkRef.current.setOptions({physics:{enabled:true}});
+                    setTimeout(function(){ networkRef.current.setOptions({physics:{enabled:false}}); }, 1800);
+                }
+            }
+            async function expandUri(iri, isRoot) {
+                if (expanded.current.has(iri)) return;
+                expanded.current.add(iri);
+                try {
+                    var res = await fetch('/api/sparql/graph/' + encodeURIComponent(repo) + '/node?uri=' + encodeURIComponent(iri));
+                    if (!res.ok) throw new Error(await res.text());
+                    var data = await res.json();
+                    var newNodes = [], newEdges = [], bnodesToExpand = [];
+                    for (var triple of (data.triples || [])) {
+                        var objType = triple.object_type;
+                        var nodeId = objType === 'bnode' ? '__bnode__' + iri + '__' + triple.predicate + '__' + triple.object : triple.object;
+                        var edgeId = 'edge::' + iri + '::' + triple.predicate + '::' + nodeId;
+                        var label = triple.object_label || kgShortLabel(triple.object);
+                        if (objType === 'literal') label = triple.object.length > 45 ? triple.object.slice(0,45)+'…' : triple.object;
+                        else if (objType === 'bnode') label = '■ blank';
+                        var color = KG_NODE_COLORS.uri;
+                        if (objType === 'bnode') color = KG_NODE_COLORS.bnode;
+                        else if (objType === 'literal') color = KG_NODE_COLORS.literal;
+                        else if (triple.predicate.endsWith('type') || triple.predicate.includes('22-rdf-syntax-ns#type')) color = KG_NODE_COLORS.classt;
+                        if (!nodesDS.current.get(nodeId)) newNodes.push({id:nodeId,iri:nodeId,label:label,title:triple.object,nodeType:objType,color:color,size:objType==='bnode'?13:16,parentIri:objType==='bnode'?iri:undefined,parentPredicate:objType==='bnode'?triple.predicate:undefined});
+                        if (!edgesDS.current.get(edgeId)) newEdges.push({id:edgeId,from:iri,to:nodeId,label:triple.predicate_local||kgShortLabel(triple.predicate),title:triple.predicate,color:{color:objType==='bnode'?'#b45309':'#4b5563'}});
+                        if (objType === 'bnode') bnodesToExpand.push({parentIri:iri,predicate:triple.predicate,nodeId:nodeId});
+                    }
+                    if (newNodes.length) nodesDS.current.add(newNodes);
+                    if (newEdges.length) edgesDS.current.update(newEdges);
+                    updateStats();
+                    for (var b of bnodesToExpand) await expandBnode(b.parentIri, b.predicate, b.nodeId);
+                    if (!isRoot) showToast('+' + newNodes.length + ' nodos añadidos');
+                } catch(err) { showToast('Error: ' + String(err).slice(0,80)); }
+            }
+            async function triggerExpandUri(iri) {
+                if (!iri||!repo) return;
+                if (expanded.current.has(iri)) { showToast('Este nodo ya fue expandido.'); return; }
+                setExpandingNode(true); await expandUri(iri, false); setExpandingNode(false); reanimatePhysics();
+            }
+            async function expandBnode(parentIri, predicate, bnodeNodeId) {
+                var key = 'bnode::'+parentIri+'::'+predicate+'::'+bnodeNodeId;
+                if (expanded.current.has(key)) return; expanded.current.add(key);
+                try {
+                    var res = await fetch('/api/sparql/graph/'+encodeURIComponent(repo)+'/bnode?parent_uri='+encodeURIComponent(parentIri)+'&predicate_uri='+encodeURIComponent(predicate));
+                    if (!res.ok) throw new Error(await res.text());
+                    var data = await res.json();
+                    var newNodes = [], newEdges = [];
+                    for (var bnode of (data.bnodes||[])) {
+                        for (var triple of (bnode.triples||[])) {
+                            var objType = triple.object_type;
+                            var childId = objType==='bnode'?'__bnode__'+bnodeNodeId+'__'+triple.predicate+'__'+triple.object:triple.object;
+                            var edgeId = 'edge::'+bnodeNodeId+'::'+triple.predicate+'::'+childId;
+                            var label = triple.object_label||kgShortLabel(triple.object);
+                            if (objType==='literal') label=triple.object.length>45?triple.object.slice(0,45)+'…':triple.object;
+                            else if (objType==='bnode') label='■ blank';
+                            var color = KG_NODE_COLORS.uri;
+                            if (objType==='bnode') color=KG_NODE_COLORS.bnode;
+                            else if (objType==='literal') color=KG_NODE_COLORS.literal;
+                            if (!nodesDS.current.get(childId)) newNodes.push({id:childId,iri:childId,label:label,title:triple.object,nodeType:objType,color:color,size:objType==='bnode'?13:16});
+                            if (!edgesDS.current.get(edgeId)) newEdges.push({id:edgeId,from:bnodeNodeId,to:childId,label:triple.predicate_local||kgShortLabel(triple.predicate),title:triple.predicate,color:{color:objType==='bnode'?'#b45309':'#4b5563'}});
+                        }
+                    }
+                    if (newNodes.length) nodesDS.current.add(newNodes);
+                    if (newEdges.length) edgesDS.current.update(newEdges);
+                    updateStats();
+                } catch(err) { console.error('[expandBnode]',err); }
+            }
+            async function triggerExpandBnode(node) {
+                if (!node.parentIri||!node.parentPredicate) { showToast('Sin contexto para expandir.'); return; }
+                var key='bnode::'+node.parentIri+'::'+node.parentPredicate+'::'+node.id;
+                if (expanded.current.has(key)) { showToast('Blank node ya expandido.'); return; }
+                setExpandingNode(true); await expandBnode(node.parentIri,node.parentPredicate,node.id); setExpandingNode(false); reanimatePhysics();
+            }
+            async function loadRootNode() {
+                var iri = iriInput.trim(); if (!iri||!repo) return;
+                setLoading(true); setSelectedNode(null);
+                expanded.current.clear(); nodesDS.current.clear(); edgesDS.current.clear();
+                nodesDS.current.add({id:iri,iri:iri,label:kgShortLabel(iri),title:iri,nodeType:'center',color:KG_NODE_COLORS.center,size:28,font:{size:14,bold:true}});
+                await expandUri(iri, true); setLoading(false);
+            }
+            function clearGraph() { nodesDS.current&&nodesDS.current.clear(); edgesDS.current&&edgesDS.current.clear(); expanded.current.clear(); setSelectedNode(null); setGraphStats({nodes:0,edges:0}); }
+            function copyToClipboard(text) { navigator.clipboard.writeText(text).then(function(){ showToast('IRI copiado'); }); }
+            var hasGraph = graphStats.nodes > 0;
+            return html`
+                <div class="kg-inspector-workspace" style=${{display: visible ? 'flex' : 'none'}} ...${devProps('#kgInspectorWorkspace', 'Inspector de Grafo KG')}>
+                    <div class="kg-toolbar" ...${devProps('#kgToolbar','Barra Herramientas KG')}>
+                        <div class="kg-toolbar-inner">
+                            <div class="kg-iri-wrapper">
+                                <i class="fa-solid fa-link"></i>
+                                <input type="text" class="kg-iri-input"
+                                    placeholder="IRI del nodo raíz (ej: http://…#Inmueble_001)"
+                                    value=${iriInput}
+                                    onChange=${(e) => setIriInput(e.target.value)}
+                                    onKeyDown=${(e) => e.key === 'Enter' && loadRootNode()} />
+                            </div>
+                            <button class="kg-btn-primary" onClick=${loadRootNode} disabled=${!iriInput.trim() || !repo || loading}>
+                                <i class="fa-solid fa-${loading ? 'circle-notch fa-spin' : 'play'}"></i> Visualizar
+                            </button>
+                            ${hasGraph && html`<button class="kg-btn-secondary" onClick=${clearGraph} title="Limpiar"><i class="fa-solid fa-trash-can"></i></button>`}
+                        </div>
+                        <div class="kg-legend">
+                            <span class="kg-legend-dot" style=${{background:'#7c3aed'}}></span><span>Centro</span>
+                            <span class="kg-legend-dot" style=${{background:'#1d4ed8'}}></span><span>URI</span>
+                            <span class="kg-legend-dot" style=${{background:'#34d399'}}></span><span>Literal</span>
+                            <span class="kg-legend-dot" style=${{background:'#fb923c'}}></span><span>Blank Node</span>
+                            <span class="kg-legend-dot" style=${{background:'#f87171'}}></span><span>Clase</span>
+                        </div>
+                    </div>
+                    <div class="kg-workspace-body">
+                        <div class="kg-canvas-container" ...${devProps('#kgCanvas','Lienzo Grafo KG')}>
+                            <div id="kgGraphCanvas" style=${{width:'100%',height:'100%'}}></div>
+                            ${!hasGraph && !loading && html`
+                                <div class="kg-empty-state">
+                                    <i class="fa-solid fa-diagram-project"></i>
+                                    <h3>Inspector de Grafo de Conocimiento</h3>
+                                    <p>Ingrese la IRI de un nodo para visualizar sus relaciones.<br/><strong>Doble clic</strong> sobre cualquier nodo para expandirlo.</p>
+                                </div>`}
+                            ${loading && html`<div class="kg-loading-overlay"><div class="kg-spinner"></div><span>Consultando GraphDB…</span></div>`}
+                            ${expandingNode && !loading && html`<div class="kg-expand-indicator"><div class="kg-spinner" style=${{width:'14px',height:'14px',borderWidth:'2px'}}></div><span>Expandiendo…</span></div>`}
+                            ${hasGraph && html`<div class="kg-hint"><i class="fa-solid fa-computer-mouse"></i> Doble clic para expandir · Clic para detalles</div>`}
+                        </div>
+                        <aside class="kg-details-panel" ...${devProps('#kgDetailsPanel','Panel Detalles Nodo KG')}>
+                            <div class="kg-details-header"><h4><i class="fa-solid fa-circle-info"></i> Detalles del Nodo</h4></div>
+                            <div class="kg-details-body">
+                                ${!selectedNode ? html`<p class="kg-placeholder">Haga clic sobre un nodo para ver sus detalles.</p>`
+                                : html`
+                                    <div class="kg-detail-block">
+                                        <div class="kg-detail-label">Tipo</div>
+                                        <span class="kg-badge kg-badge-${selectedNode.nodeType}">
+                                            ${selectedNode.nodeType==='center'?'Nodo Central':selectedNode.nodeType==='bnode'?'Blank Node':selectedNode.nodeType==='literal'?'Literal':selectedNode.nodeType==='classt'?'Clase':'URI'}
+                                        </span>
+                                    </div>
+                                    <div class="kg-detail-block">
+                                        <div class="kg-detail-label">IRI / Valor</div>
+                                        <div class="kg-detail-value" onClick=${() => copyToClipboard(selectedNode.title || selectedNode.iri)} title="Clic para copiar">
+                                            ${selectedNode.title || selectedNode.iri}
+                                        </div>
+                                    </div>
+                                    ${(selectedNode.nodeType==='uri'||selectedNode.nodeType==='center') && html`
+                                        <button class="kg-btn-primary" style=${{fontSize:'12px',padding:'8px 14px',marginTop:'6px'}} onClick=${() => triggerExpandUri(selectedNode.iri)}>
+                                            <i class="fa-solid fa-expand"></i> Expandir nodo
+                                        </button>`}
+                                    ${selectedNode.nodeType==='bnode' && html`
+                                        <button class="kg-btn-primary" style=${{fontSize:'12px',padding:'8px 14px',marginTop:'6px'}} onClick=${() => triggerExpandBnode(selectedNode)}>
+                                            <i class="fa-solid fa-expand"></i> Expandir blank node
+                                        </button>`}
+                                `}
+                            </div>
+                            <div class="kg-status-bar">
+                                <span><strong>${graphStats.nodes}</strong> nodos</span>
+                                <span>·</span>
+                                <span><strong>${graphStats.edges}</strong> aristas</span>
+                            </div>
+                        </aside>
+                    </div>
+                    ${toast && html`<div class="kg-toast">${toast}</div>`}
+                </div>
+            `;
+        }
+        // ─────────────────────────────────────────────────────────────────────────
+
         function App() {
             // State
             const [view, setView] = React.useState('map'); // 'map' | 'table'
@@ -1582,6 +1806,14 @@
                             <i class="fa-solid fa-table-list"></i>
                             Tabla
                         </button>
+                        <button 
+                            class="view-toggle-btn ${view === 'graph' ? 'active' : ''}" 
+                            onClick=${() => setView('graph')}
+                            ...${getDevProps('#graphViewBtn', 'Botón Vista Grafo KG')}
+                        >
+                            <i class="fa-solid fa-diagram-project"></i>
+                            Grafo KG
+                        </button>
                     </div>
                     
                     <div class="header-right">
@@ -1879,6 +2111,13 @@
                             </table>
                         </div>
                     </div>
+
+                    <!-- Knowledge Graph Inspector Workspace Panel -->
+                    <${GraphInspectorPanel}
+                        visible=${view === 'graph'}
+                        repo=${activeRepo}
+                        devProps=${getDevProps}
+                    />
 
                     <!-- Rename Modal Dialog -->
                     ${activeDialog && html`

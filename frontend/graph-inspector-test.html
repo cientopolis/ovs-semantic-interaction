@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OVS Test - Inspector de Grafo de Conocimiento</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/htm@3.1.1/dist/htm.umd.js"></script>
+    <link rel="stylesheet" href="/src/style.css">
+
+    <style>
+        html, body {
+            background-color: var(--bg-base);
+            color: var(--text-primary);
+            font-family: var(--font-primary);
+            width: 100%; height: 100%;
+            margin: 0; padding: 0; overflow: hidden;
+        }
+        #root {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        .app-layout { display: flex; flex-direction: column; width: 100%; flex: 1; min-height: 0; }
+
+        /* Header */
+        .app-header {
+            height: 64px; padding: 0 24px;
+            background-color: var(--header-bg);
+            border-bottom: 1px solid var(--border-color);
+            display: flex; align-items: center; gap: 16px;
+            flex-shrink: 0; z-index: 10;
+        }
+        .header-title {
+            display: flex; align-items: center; gap: 10px;
+            font-size: 18px; font-weight: 700;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            white-space: nowrap;
+        }
+        .search-area { flex: 1; display: flex; align-items: center; gap: 10px; max-width: 760px; }
+        .iri-input-wrapper { flex: 1; position: relative; }
+        .iri-input-wrapper i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 13px; }
+        .iri-input {
+            width: 100%; padding: 9px 16px 9px 38px; border-radius: 100px;
+            border: 1px solid var(--border-color); background-color: var(--input-bg);
+            color: var(--text-primary); font-size: 13px; font-family: monospace;
+            outline: none; transition: all 0.2s ease; box-sizing: border-box;
+        }
+        .iri-input:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--accent-glow); }
+
+        .btn-primary {
+            padding: 9px 18px; border-radius: 100px; border: none;
+            background: var(--accent-gradient); color: #000;
+            font-size: 13px; font-weight: 700; cursor: pointer;
+            white-space: nowrap; transition: all 0.2s ease;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .btn-primary:hover { filter: brightness(1.15); }
+        .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .btn-secondary {
+            padding: 9px 14px; border-radius: 100px;
+            border: 1px solid var(--border-color); background-color: var(--bg-surface);
+            color: var(--text-secondary); font-size: 12px; font-weight: 600;
+            cursor: pointer; transition: all 0.2s ease;
+        }
+        .btn-secondary:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
+
+        /* Workspace */
+        .workspace { display: flex; flex: 1; overflow: hidden; min-height: 0; }
+        .graph-canvas-container { flex: 1; position: relative; background-color: var(--bg-base); min-width: 0; min-height: 0; }
+        #graphCanvas { width: 100%; height: 100%; position: absolute; inset: 0; }
+
+        /* Empty state */
+        .empty-state {
+            position: absolute; inset: 0;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 16px; color: var(--text-muted);
+        }
+        .empty-state i {
+            font-size: 56px;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; opacity: 0.4;
+        }
+        .empty-state h3 { font-size: 18px; font-weight: 600; color: var(--text-secondary); margin: 0; }
+        .empty-state p { font-size: 13px; color: var(--text-muted); text-align: center; max-width: 400px; margin: 0; line-height: 1.7; }
+
+        /* Loading */
+        .loading-overlay {
+            position: absolute; inset: 0;
+            display: flex; align-items: center; justify-content: center;
+            background-color: rgba(0,0,0,0.5); z-index: 100; gap: 12px; flex-direction: column;
+        }
+        .spinner {
+            width: 40px; height: 40px;
+            border: 3px solid rgba(255,255,255,0.1); border-top-color: var(--accent-primary);
+            border-radius: 50%; animation: spin 0.7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Details Panel */
+        .details-panel {
+            width: 320px; background-color: var(--bg-surface);
+            border-left: 1px solid var(--border-color);
+            display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0;
+        }
+        .details-panel-header {
+            padding: 16px 20px; border-bottom: 1px solid var(--border-color);
+            background-color: rgba(0,0,0,0.1);
+        }
+        .details-panel-header h3 {
+            font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px;
+            color: var(--accent-primary); margin: 0; display: flex; align-items: center; gap: 8px;
+        }
+        .details-panel-body { padding: 16px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 14px; }
+        .detail-block { display: flex; flex-direction: column; gap: 4px; }
+        .detail-block-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
+        .detail-block-value {
+            font-size: 12px; color: var(--text-primary); word-break: break-all;
+            font-family: monospace; background-color: var(--bg-base);
+            padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border-light);
+            cursor: pointer; transition: all 0.2s ease;
+        }
+        .detail-block-value:hover { border-color: var(--accent-primary); background-color: rgba(0,229,255,0.04); }
+
+        .type-badge {
+            display: inline-block; padding: 1px 6px; border-radius: 100px;
+            font-size: 9px; font-weight: 700; text-transform: uppercase;
+            margin-left: 4px; vertical-align: middle;
+        }
+        .badge-uri { background: rgba(96,165,250,0.2); color: #60a5fa; }
+        .badge-literal { background: rgba(52,211,153,0.2); color: #34d399; }
+        .badge-bnode { background: rgba(251,146,60,0.2); color: #fb923c; }
+        .badge-center { background: rgba(167,139,250,0.2); color: #a78bfa; }
+        .badge-class { background: rgba(248,113,113,0.2); color: #f87171; }
+
+        /* Status bar */
+        .status-bar {
+            padding: 6px 20px; border-top: 1px solid var(--border-light);
+            font-size: 11px; color: var(--text-muted);
+            display: flex; align-items: center; gap: 16px;
+            background-color: var(--bg-surface); flex-shrink: 0;
+        }
+        .status-item { display: flex; align-items: center; gap: 5px; }
+        .status-dot { width: 6px; height: 6px; border-radius: 50%; background-color: var(--accent-primary); }
+
+        /* Toast */
+        .toast {
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+            background-color: var(--bg-surface-solid); border: 1px solid var(--accent-primary);
+            color: var(--text-primary); padding: 10px 20px; border-radius: 100px;
+            font-size: 13px; font-weight: 600; z-index: 9999; box-shadow: var(--shadow-lg);
+            animation: toastIn 0.3s ease;
+        }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(-50%) translateY(16px); }
+            to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        .expand-hint {
+            position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+            background-color: var(--bg-surface-solid); border: 1px solid var(--border-color);
+            padding: 7px 16px; border-radius: 100px; font-size: 12px; color: var(--text-muted);
+            pointer-events: none; opacity: 0.85;
+        }
+        .expand-indicator {
+            position: absolute; top: 16px; right: 16px;
+            background: var(--bg-surface); border: 1px solid var(--border-color);
+            padding: 8px 16px; border-radius: 100px; font-size: 12px;
+            color: var(--text-secondary); display: flex; gap: 8px; align-items: center;
+        }
+    </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script>
+const html = htm.bind(React.createElement);
+
+// ─── Vis.js options ───────────────────────────────────────────────────────────
+const VIS_OPTIONS = {
+    nodes: {
+        shape: 'dot', size: 18,
+        font: { size: 12, color: '#d4d8e1', face: 'Outfit, sans-serif' },
+        borderWidth: 2,
+        shadow: { enabled: true, size: 6, color: 'rgba(0,0,0,0.4)' }
+    },
+    edges: {
+        width: 1.5,
+        color: { color: '#4b5563', hover: '#00e5ff', highlight: '#00e5ff' },
+        font: { size: 10, color: '#9ca3af', align: 'middle', strokeWidth: 0 },
+        arrows: { to: { enabled: true, scaleFactor: 0.6 } },
+        smooth: { type: 'continuous' }
+    },
+    interaction: { hover: true, tooltipDelay: 200, zoomView: true, keyboard: true },
+    physics: {
+        enabled: true,
+        solver: 'forceAtlas2Based',
+        forceAtlas2Based: { gravitationalConstant: -50, springLength: 120, springConstant: 0.08 },
+        stabilization: { iterations: 150 }
+    }
+};
+
+const NODE_COLORS = {
+    center:  { background: '#7c3aed', border: '#a78bfa', hover: { background: '#8b5cf6', border: '#c4b5fd' } },
+    uri:     { background: '#1d4ed8', border: '#60a5fa', hover: { background: '#2563eb', border: '#93c5fd' } },
+    literal: { background: '#065f46', border: '#34d399', hover: { background: '#047857', border: '#6ee7b7' } },
+    bnode:   { background: '#92400e', border: '#fb923c', hover: { background: '#b45309', border: '#fcd34d' } },
+    class:   { background: '#7f1d1d', border: '#f87171', hover: { background: '#991b1b', border: '#fca5a5' } },
+};
+
+function shortLabel(uri, maxLen = 30) {
+    if (!uri) return '(vacío)';
+    const local = uri.includes('#') ? uri.split('#').pop() : uri.split('/').pop();
+    if (local && local.length > 2) return local.length > maxLen ? local.slice(0, maxLen) + '…' : local;
+    return uri.length > maxLen ? '…' + uri.slice(-maxLen) : uri;
+}
+
+// ─── Main App ─────────────────────────────────────────────────────────────────
+function GraphInspectorApp() {
+    const [repo, setRepo] = React.useState(() => localStorage.getItem('activeRepository') || '');
+    const [repositories, setRepositories] = React.useState([]);
+    const [iriInput, setIriInput] = React.useState('');
+    const [loading, setLoading] = React.useState(false);
+    const [selectedNode, setSelectedNode] = React.useState(null);
+    const [graphStats, setGraphStats] = React.useState({ nodes: 0, edges: 0 });
+    const [toast, setToast] = React.useState(null);
+    const [expandingNode, setExpandingNode] = React.useState(false);
+
+    const networkRef = React.useRef(null);
+    const nodesDS = React.useRef(null);
+    const edgesDS = React.useRef(null);
+    // Track expanded nodes/bnodes to avoid re-expansion
+    // For URI nodes: key = iri
+    // For blank nodes: key = `bnode::${parentIri}::${predicate}`
+    const expanded = React.useRef(new Set());
+
+    const showToast = (msg) => {
+        setToast(msg);
+        setTimeout(() => setToast(null), 2800);
+    };
+
+    const updateStats = () => {
+        setGraphStats({ nodes: nodesDS.current.length, edges: edgesDS.current.length });
+    };
+
+    // ── Fetch repositories on mount ────────────────────────────────────────
+    React.useEffect(() => {
+        fetch('/api/repositories')
+            .then(r => r.json())
+            .then(repos => {
+                setRepositories(repos);
+                if (!repo && repos.length > 0) setRepo(repos[0].id);
+            })
+            .catch(() => {});
+    }, []);
+
+    // ── Init Vis.js network ────────────────────────────────────────────────
+    React.useEffect(() => {
+        const container = document.getElementById('graphCanvas');
+        if (!container) return;
+
+        const nodes = new vis.DataSet([]);
+        const edges = new vis.DataSet([]);
+        nodesDS.current = nodes;
+        edgesDS.current = edges;
+
+        const network = new vis.Network(container, { nodes, edges }, VIS_OPTIONS);
+        networkRef.current = network;
+
+        network.on('click', (params) => {
+            if (params.nodes.length === 0) { setSelectedNode(null); return; }
+            const node = nodes.get(params.nodes[0]);
+            setSelectedNode(node);
+        });
+
+        network.on('doubleClick', (params) => {
+            if (params.nodes.length === 0) return;
+            const node = nodes.get(params.nodes[0]);
+            if (!node) return;
+            if (node.nodeType === 'literal') {
+                showToast('Los literales no tienen relaciones para expandir.');
+                return;
+            }
+            if (node.nodeType === 'bnode') {
+                triggerExpandBnode(node);
+            } else {
+                triggerExpandUri(node.iri, node.id);
+            }
+        });
+
+        network.on('stabilizationIterationsDone', () => {
+            network.setOptions({ physics: { enabled: false } });
+        });
+
+        return () => network.destroy();
+    }, []);
+
+    // ── Re-enable physics briefly after manual expansion ───────────────────
+    const reanimatePhysics = () => {
+        networkRef.current?.setOptions({ physics: { enabled: true } });
+        setTimeout(() => networkRef.current?.setOptions({ physics: { enabled: false } }), 1800);
+    };
+
+    // ── Trigger expand of a URI node (from doubleClick or sidebar) ─────────
+    const triggerExpandUri = async (iri, nodeId) => {
+        if (!iri || !repo) return;
+        if (expanded.current.has(iri)) { showToast('Este nodo ya fue expandido.'); return; }
+        setExpandingNode(true);
+        await expandUri(iri, false);
+        setExpandingNode(false);
+        reanimatePhysics();
+    };
+
+    // ── Core: expand a URI node ────────────────────────────────────────────
+    const expandUri = async (iri, isRoot) => {
+        if (expanded.current.has(iri)) return;
+        expanded.current.add(iri);
+
+        let res;
+        try {
+            res = await fetch(
+                `/api/sparql/graph/${encodeURIComponent(repo)}/node?uri=${encodeURIComponent(iri)}`
+            );
+            if (!res.ok) {
+                const detail = await res.text();
+                throw new Error(detail);
+            }
+        } catch (err) {
+            console.error('[expandUri] fetch error:', err);
+            if (!isRoot) showToast('Error al consultar: ' + String(err).slice(0, 80));
+            return;
+        }
+
+        const data = await res.json();
+        const newNodes = [];
+        const newEdges = [];
+        const bnodesToExpand = []; // { parentIri, predicate, nodeId (stable) }
+
+        for (const triple of (data.triples || [])) {
+            const objType = triple.object_type; // 'uri' | 'literal' | 'bnode'
+            // Blank nodes need a stable synthetic ID based on context (they have no real IRI)
+            const nodeId = objType === 'bnode'
+                ? `__bnode__${iri}__${triple.predicate}__${triple.object}`
+                : triple.object;
+            const edgeId = `edge::${iri}::${triple.predicate}::${nodeId}`;
+
+            // Label
+            let label = triple.object_label || shortLabel(triple.object);
+            if (objType === 'literal') label = triple.object.length > 45 ? triple.object.slice(0, 45) + '…' : triple.object;
+            else if (objType === 'bnode') label = '■ blank';
+
+            // Color
+            let color = NODE_COLORS.uri;
+            if (objType === 'bnode') color = NODE_COLORS.bnode;
+            else if (objType === 'literal') color = NODE_COLORS.literal;
+            else if (triple.predicate.endsWith('type') || triple.predicate.includes('22-rdf-syntax-ns#type')) color = NODE_COLORS.class;
+
+            if (!nodesDS.current.get(nodeId)) {
+                newNodes.push({
+                    id: nodeId, iri: nodeId,
+                    label, title: triple.object,
+                    nodeType: objType, color,
+                    size: objType === 'bnode' ? 13 : 16,
+                    // Context needed for blank node expansion
+                    parentIri: objType === 'bnode' ? iri : undefined,
+                    parentPredicate: objType === 'bnode' ? triple.predicate : undefined,
+                });
+            }
+
+            if (!edgesDS.current.get(edgeId)) {
+                newEdges.push({
+                    id: edgeId, from: iri, to: nodeId,
+                    label: triple.predicate_local || shortLabel(triple.predicate),
+                    title: triple.predicate,
+                    color: { color: objType === 'bnode' ? '#b45309' : '#4b5563' }
+                });
+            }
+
+            // Queue blank nodes for auto-expansion
+            if (objType === 'bnode') {
+                bnodesToExpand.push({ parentIri: iri, predicate: triple.predicate, nodeId });
+            }
+        }
+
+        if (newNodes.length) nodesDS.current.add(newNodes);
+        if (newEdges.length) edgesDS.current.update(newEdges);
+        updateStats();
+
+        // Auto-expand blank nodes recursively
+        for (const b of bnodesToExpand) {
+            await expandBnode(b.parentIri, b.predicate, b.nodeId);
+        }
+
+        if (!isRoot) showToast(`+${newNodes.length} nodos añadidos`);
+    };
+
+    // ── Trigger expand of a blank node ────────────────────────────────────
+    const triggerExpandBnode = async (node) => {
+        if (!node.parentIri || !node.parentPredicate) {
+            showToast('Sin contexto para expandir este blank node.');
+            return;
+        }
+        const key = `bnode::${node.parentIri}::${node.parentPredicate}::${node.id}`;
+        if (expanded.current.has(key)) { showToast('Este blank node ya fue expandido.'); return; }
+        setExpandingNode(true);
+        await expandBnode(node.parentIri, node.parentPredicate, node.id);
+        setExpandingNode(false);
+        reanimatePhysics();
+    };
+
+    // ── Core: expand a blank node via parent+predicate ────────────────────
+    const expandBnode = async (parentIri, predicate, bnodeNodeId) => {
+        const key = `bnode::${parentIri}::${predicate}::${bnodeNodeId}`;
+        if (expanded.current.has(key)) return;
+        expanded.current.add(key);
+
+        let res;
+        try {
+            res = await fetch(
+                `/api/sparql/graph/${encodeURIComponent(repo)}/bnode` +
+                `?parent_uri=${encodeURIComponent(parentIri)}` +
+                `&predicate_uri=${encodeURIComponent(predicate)}`
+            );
+            if (!res.ok) throw new Error(await res.text());
+        } catch (err) {
+            console.error('[expandBnode] fetch error:', err);
+            return;
+        }
+
+        const data = await res.json();
+        const newNodes = [];
+        const newEdges = [];
+
+        for (const bnode of (data.bnodes || [])) {
+            for (const triple of (bnode.triples || [])) {
+                const objType = triple.object_type;
+                const childId = objType === 'bnode'
+                    ? `__bnode__${bnodeNodeId}__${triple.predicate}__${triple.object}`
+                    : triple.object;
+                const edgeId = `edge::${bnodeNodeId}::${triple.predicate}::${childId}`;
+
+                let label = triple.object_label || shortLabel(triple.object);
+                if (objType === 'literal') label = triple.object.length > 45 ? triple.object.slice(0, 45) + '…' : triple.object;
+                else if (objType === 'bnode') label = '■ blank';
+
+                let color = NODE_COLORS.uri;
+                if (objType === 'bnode') color = NODE_COLORS.bnode;
+                else if (objType === 'literal') color = NODE_COLORS.literal;
+
+                if (!nodesDS.current.get(childId)) {
+                    newNodes.push({
+                        id: childId, iri: childId,
+                        label, title: triple.object,
+                        nodeType: objType, color,
+                        size: objType === 'bnode' ? 13 : 16,
+                        parentIri: objType === 'bnode' ? bnodeNodeId : undefined,
+                        parentPredicate: objType === 'bnode' ? triple.predicate : undefined,
+                    });
+                }
+
+                if (!edgesDS.current.get(edgeId)) {
+                    newEdges.push({
+                        id: edgeId, from: bnodeNodeId, to: childId,
+                        label: triple.predicate_local || shortLabel(triple.predicate),
+                        title: triple.predicate,
+                        color: { color: objType === 'bnode' ? '#b45309' : '#4b5563' }
+                    });
+                }
+            }
+        }
+
+        if (newNodes.length) nodesDS.current.add(newNodes);
+        if (newEdges.length) edgesDS.current.update(newEdges);
+        updateStats();
+    };
+
+    // ── Load root node ─────────────────────────────────────────────────────
+    const loadRootNode = async () => {
+        const iri = iriInput.trim();
+        if (!iri || !repo) return;
+
+        setLoading(true);
+        setSelectedNode(null);
+        expanded.current.clear();
+        nodesDS.current.clear();
+        edgesDS.current.clear();
+
+        // Root center node
+        nodesDS.current.add({
+            id: iri, iri,
+            label: shortLabel(iri), title: iri,
+            nodeType: 'center', color: NODE_COLORS.center,
+            size: 28, font: { size: 14, bold: true }
+        });
+
+        await expandUri(iri, true);
+        setLoading(false);
+    };
+
+    const handleKeyDown = (e) => { if (e.key === 'Enter') loadRootNode(); };
+
+    const copyToClipboard = (text) => {
+        navigator.clipboard.writeText(text).then(() => showToast('IRI copiado al portapapeles'));
+    };
+
+    const clearGraph = () => {
+        nodesDS.current?.clear();
+        edgesDS.current?.clear();
+        expanded.current.clear();
+        setSelectedNode(null);
+        setGraphStats({ nodes: 0, edges: 0 });
+    };
+
+    const hasGraph = graphStats.nodes > 0;
+
+    return html`
+        <div class="app-layout">
+            <header class="app-header">
+                <div class="header-title">
+                    <i class="fa-solid fa-diagram-project"></i>
+                    <span>Inspector de Grafo KG</span>
+                </div>
+                <div class="search-area">
+                    <select
+                        style=${{ background: 'var(--bg-surface)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '8px 12px', borderRadius: '100px', fontSize: '12px', fontWeight: '600', outline: 'none', cursor: 'pointer' }}
+                        value=${repo}
+                        onChange=${(e) => setRepo(e.target.value)}
+                    >
+                        ${repositories.map(r => html`<option key=${r.id} value=${r.id}>${r.title || r.id}</option>`)}
+                    </select>
+                    <div class="iri-input-wrapper">
+                        <i class="fa-solid fa-link"></i>
+                        <input
+                            type="text" class="iri-input"
+                            placeholder="IRI del nodo raíz (ej: http://...#Inmueble_001)"
+                            value=${iriInput}
+                            onChange=${(e) => setIriInput(e.target.value)}
+                            onKeyDown=${handleKeyDown}
+                        />
+                    </div>
+                    <button class="btn-primary" onClick=${loadRootNode} disabled=${!iriInput.trim() || !repo || loading}>
+                        <i class="fa-solid fa-${loading ? 'circle-notch fa-spin' : 'play'}"></i>
+                        Visualizar
+                    </button>
+                    ${hasGraph && html`
+                        <button class="btn-secondary" onClick=${clearGraph} title="Limpiar grafo">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    `}
+                </div>
+            </header>
+
+            <div class="workspace">
+                <div class="graph-canvas-container">
+                    <div id="graphCanvas"></div>
+
+                    ${!hasGraph && !loading && html`
+                        <div class="empty-state">
+                            <i class="fa-solid fa-diagram-project"></i>
+                            <h3>Inspector de Grafo de Conocimiento</h3>
+                            <p>
+                                Ingrese la IRI de un nodo para visualizar sus relaciones.
+                                Haga <strong>doble clic</strong> sobre cualquier nodo para expandirlo.
+                                Los blank nodes <span class="type-badge badge-bnode">bnode</span>
+                                se expanden automáticamente al cargar.
+                            </p>
+                        </div>
+                    `}
+
+                    ${loading && html`
+                        <div class="loading-overlay">
+                            <div class="spinner"></div>
+                            <span style=${{ color: 'var(--text-secondary)', fontSize: '13px' }}>Consultando GraphDB…</span>
+                        </div>
+                    `}
+
+                    ${expandingNode && !loading && html`
+                        <div class="expand-indicator">
+                            <div class="spinner" style=${{ width: '14px', height: '14px', borderWidth: '2px' }}></div>
+                            Expandiendo nodo…
+                        </div>
+                    `}
+
+                    ${hasGraph && html`
+                        <div class="expand-hint">
+                            <i class="fa-solid fa-computer-mouse" style=${{ marginRight: '6px' }}></i>
+                            Doble clic para expandir · Clic para ver detalles
+                        </div>
+                    `}
+                </div>
+
+                <aside class="details-panel">
+                    <div class="details-panel-header">
+                        <h3><i class="fa-solid fa-circle-info"></i> Detalles del Nodo</h3>
+                    </div>
+                    <div class="details-panel-body">
+                        ${!selectedNode ? html`
+                            <p style=${{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.6', margin: 0 }}>
+                                Haga clic sobre un nodo del grafo para ver sus detalles aquí.
+                            </p>
+                        ` : html`
+                            <div class="detail-block">
+                                <div class="detail-block-label">Tipo de Nodo</div>
+                                <div>
+                                    <span class="type-badge badge-${selectedNode.nodeType}">
+                                        ${selectedNode.nodeType === 'center' ? 'Nodo Central'
+                                          : selectedNode.nodeType === 'bnode' ? 'Blank Node'
+                                          : selectedNode.nodeType === 'literal' ? 'Literal'
+                                          : selectedNode.nodeType === 'class' ? 'Clase'
+                                          : 'URI'}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="detail-block">
+                                <div class="detail-block-label">Valor / IRI</div>
+                                <div class="detail-block-value" onClick=${() => copyToClipboard(selectedNode.title || selectedNode.iri)} title="Clic para copiar">
+                                    ${selectedNode.title || selectedNode.iri}
+                                </div>
+                            </div>
+                            ${selectedNode.parentIri && html`
+                                <div class="detail-block">
+                                    <div class="detail-block-label">Nodo Padre</div>
+                                    <div class="detail-block-value" onClick=${() => copyToClipboard(selectedNode.parentIri)} title="Clic para copiar">
+                                        ${shortLabel(selectedNode.parentIri, 50)}
+                                    </div>
+                                </div>
+                            `}
+                            ${(selectedNode.nodeType === 'uri' || selectedNode.nodeType === 'center') && html`
+                                <button class="btn-primary" style=${{ marginTop: '4px', fontSize: '12px', padding: '8px 14px' }}
+                                    onClick=${() => triggerExpandUri(selectedNode.iri, selectedNode.id)}>
+                                    <i class="fa-solid fa-expand"></i> Expandir este nodo
+                                </button>
+                            `}
+                            ${selectedNode.nodeType === 'bnode' && html`
+                                <button class="btn-primary" style=${{ marginTop: '4px', fontSize: '12px', padding: '8px 14px' }}
+                                    onClick=${() => triggerExpandBnode(selectedNode)}>
+                                    <i class="fa-solid fa-expand"></i> Expandir blank node
+                                </button>
+                            `}
+                        `}
+                    </div>
+                </aside>
+            </div>
+
+            <div class="status-bar">
+                <div class="status-item"><div class="status-dot"></div><span><strong>${graphStats.nodes}</strong> nodos</span></div>
+                <div class="status-item"><i class="fa-solid fa-arrow-right-arrow-left" style=${{ fontSize: '10px' }}></i><span><strong>${graphStats.edges}</strong> aristas</span></div>
+                ${repo && html`<div class="status-item"><i class="fa-solid fa-database" style=${{ fontSize: '10px' }}></i><span>Repo: <strong>${repo}</strong></span></div>`}
+            </div>
+
+            ${toast && html`<div class="toast">${toast}</div>`}
+        </div>
+    `;
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(html`<${GraphInspectorApp} />`);
+</script>
+</body>
+</html>

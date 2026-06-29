@@ -91,3 +91,15 @@ def read_user_menu_test():
         "message": "OVS Semantic API is running. (frontend/user-menu-test.html no encontrado)",
         "docs_url": "/docs"
     }
+
+# Servir graph-inspector-test.html para el inspector visual del grafo de conocimiento
+@app.get("/graph-inspector-test")
+def read_graph_inspector_test():
+    graph_test_path = os.path.join(frontend_dir, "graph-inspector-test.html")
+    if os.path.exists(graph_test_path):
+        return FileResponse(graph_test_path)
+    return {
+        "message": "OVS Semantic API is running. (frontend/graph-inspector-test.html no encontrado)",
+        "docs_url": "/docs"
+    }
+

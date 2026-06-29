@@ -1,16 +1,18 @@
 # OVS Semantic Hub
 
-**OVS Semantic Hub** es una plataforma web interactiva para explorar y visualizar grafos de conocimiento RDF basados en la ontología del Observatorio Inmobiliario (OVS-UNLP). Permite conectar un repositorio [GraphDB](https://graphdb.ontotext.com/) y visualizar los datos a través de tres vistas complementarias: explorador tabular, visor de grafo interactivo y mapa geográfico.
+**OVS Semantic Hub** es una plataforma web interactiva para explorar y visualizar grafos de conocimiento RDF basados en la ontología del Observatorio Inmobiliario (OVS-UNLP). Permite conectar un repositorio [GraphDB](https://graphdb.ontotext.com/) y visualizar los datos a través de múltiples vistas complementarias: explorador tabular, mapa geográfico e inspector interactivo del grafo de conocimiento.
 
 ---
 
 ## Características
 
-- 🔗 **Conexión a GraphDB** — Selección de repositorio con persistencia de sesión
-- 🗂️ **Explorador de entidades** — Navegación tabular por clases e instancias
-- 🕸️ **Visor de grafo** — Visualización interactiva de redes con [Vis.js](https://visjs.org/)
+- 🔗 **Conexión a GraphDB** — Selección de repositorio con persistencia de sesión y diagnóstico de conexión
 - 🗺️ **Mapa geográfico** — Geolocalización de inmuebles (`rec:RealEstate`) con [Leaflet.js](https://leafletjs.com/) y filtros dinámicos por subclase
-- ⚡ **Consola SPARQL** — Editor de consultas con plantillas predefinidas y exportación JSON
+- 🗂️ **Explorador tabular** — Grilla con edición en línea (doble clic), ordenamiento y búsqueda
+- 🕸️ **Inspector de Grafo KG** — Visualización interactiva de nodos del grafo de conocimiento con expansión de relaciones y traversal automático de blank nodes
+- 🎨 **Tematización dinámica** — Temas Dark, Light y Pastel sincronizados en toda la interfaz
+- 🐛 **Modo Desarrollador** — Etiquetas de identificación de componentes visuales al pasar el mouse
+- 👤 **Menú de usuario** — Dropdown de perfil y configuración
 
 ---
 
@@ -147,15 +149,16 @@ ovs-semantic-interaction/
 │       ├── config.py           # Configuración con Pydantic Settings
 │       ├── routes/
 │       │   ├── repo_routes.py  # Endpoints: repositorios y estadísticas
-│       │   └── sparql_routes.py# Endpoints: consultas SPARQL, grafo, mapa
+│       │   └── sparql_routes.py# Endpoints: SPARQL, grafo, mapa, inspector KG
 │       └── services/
 │           └── graphdb_service.py # Cliente HTTP para GraphDB
 ├── frontend/
-│   ├── index.html              # SPA principal
+│   ├── index.html              # SPA principal (Mapa · Tabla · Grafo KG)
+│   ├── graph-inspector-test.html # Página de prueba independiente del inspector
 │   └── src/
 │       ├── main.js             # Orquestador de vistas
 │       ├── api.js              # Cliente de la API REST
-│       ├── style.css           # Estilos (light mode premium)
+│       ├── style.css           # Estilos (temas dark/light/pastel)
 │       └── components/
 │           ├── repo_selector.js   # Selector de repositorio
 │           ├── entity_explorer.js # Explorador tabular
@@ -208,13 +211,42 @@ En [`frontend/src/components/map_viewer.js`](frontend/src/components/map_viewer.
 | Mapa sin marcadores | Consulta SPARQL tarda demasiado | Revisar que el repositorio tiene datos y que `rec:RealEstate` y `geosparql:hasGeometry` están presentes |
 | Error 400 en consultas personalizadas | SPARQL inválido | Verificar sintaxis en la Consola SPARQL de la app o directamente en GraphDB Workbench |
 | Repository is currently in use | Dos procesos accediendo al repositorio | Cerrar otras conexiones o reiniciar GraphDB |
+| Inspector KG sin resultados | IRI incorrecta o nodo no existe | Verificar la IRI completa copiándola desde el Workbench de GraphDB |
 
 ---
 
 ## Hitos y Versiones (Milestones)
 
+### 🕸️ Hito v2.3.0 — Inspector de Grafo de Conocimiento
+Se integra un nuevo panel **Grafo KG** accesible desde el toggle de vistas del header. Permite explorar en forma de grafo interactivo cualquier nodo del repositorio:
+- **Ingreso por IRI**: el usuario ingresa la IRI completa del nodo raíz y obtiene un grafo inmediato de sus relaciones directas.
+- **Expansión interactiva**: doble clic sobre cualquier nodo URI expande sus relaciones. Los nodos de tipo literal no son expandibles.
+- **Traversal automático de Blank Nodes**: los blank nodes (nodos anónimos RDF) se expanden automáticamente al cargar, navegando desde su contexto padre (predicado + sujeto) para evitar errores de consulta SPARQL.
+- **Panel de detalles**: panel lateral con el tipo, IRI/valor y acciones rápidas de cada nodo seleccionado.
+- **Leyenda cromática**: diferenciación visual entre nodos Centro, URI, Literal, Blank Node y Clase.
+- **Compatibilidad de temas**: hereda automáticamente los temas Dark, Light y Pastel de la aplicación.
+- **Soporte Modo Dev**: todos los componentes visuales del inspector tienen `data-dev-id` para identificación.
+
+**Nuevos endpoints de API:**
+- `GET /api/sparql/graph/{repo_id}/node?uri=<IRI>` — Consulta las relaciones directas de un nodo URI.
+- `GET /api/sparql/graph/{repo_id}/bnode?parent_uri=<IRI>&predicate_uri=<IRI>` — Navega los valores de un blank node desde su contexto padre.
+
+---
+
+### 👤 Hito v2.2.0 — Menú de Usuario (`#menuUsuario`)
+Se agrega un menú desplegable (dropdown acordeón) ubicado a la derecha del selector de tema. Incluye información del usuario activo, acceso a perfil, configuración y cierre de sesión. El diseño respeta el look & feel glassmorphism de la aplicación.
+
+---
+
+### 🐛 Hito v2.1.0 — Modo Desarrollador
+Se incorpora un toggle **Modo Dev** en el header que, al activarse, muestra el nombre identificador de cada componente visual al pasar el mouse. Cada componente puede recibir un alias personalizable a través de un diálogo modal. Los identificadores se almacenan en `localStorage`.
+
+**Corrección:** se resolvió un bug donde desactivar el modo dev disparaba el diálogo de renombrado por propagación del evento click.
+
+---
+
 ### 🚀 Hito v2.0.0 — Migración a React GIS Dashboard (Kepler.gl + Carto)
-Se ha migrado la interfaz de usuario de componentes vanilla a una aplicación **React interactiva de una sola página** optimizada para el análisis espacial y la conexión dinámica con GraphDB:
+Se migró la interfaz de usuario de componentes vanilla a una aplicación **React interactiva de una sola página** optimizada para el análisis espacial y la conexión dinámica con GraphDB:
 - **Navegación Toggle Dual (Estilo Carto)**: Alternador dinámico en la cabecera entre vista de Mapa y vista de Tabla de alta densidad.
 - **Sincronización Bidireccional**: Edición Excel-style (doble clic) en línea en la grilla que actualiza las capas del mapa de manera instantánea.
 - **Capas Visuales Avanzadas (Estilo Kepler.gl)**: Control de capas interactivo que permite activar:
