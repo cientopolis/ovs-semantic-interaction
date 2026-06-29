@@ -1457,21 +1457,25 @@
                             };
                         });
                         setData(parsed);
-                        
-                        // Centrar mapa si hay elementos
-                        if (parsed.length > 0 && leafletMapRef.current) {
-                            const validCoords = parsed.map(p => [p.lat, p.lng]);
-                            const bounds = L.latLngBounds(validCoords);
-                            if (bounds.isValid()) {
-                                leafletMapRef.current.fitBounds(bounds, { padding: [40, 40] });
-                            }
-                        }
                     })
                     .catch(err => {
                         console.error("Error fetching geolocalized entities:", err);
                         setData([]);
                     });
             }, [activeRepo]);
+
+            const [mapReady, setMapReady] = React.useState(false);
+
+            // Center map when data or map initialization completes
+            React.useEffect(() => {
+                if (mapReady && data.length > 0 && leafletMapRef.current) {
+                    const validCoords = data.map(p => [p.lat, p.lng]);
+                    const bounds = L.latLngBounds(validCoords);
+                    if (bounds.isValid()) {
+                        leafletMapRef.current.fitBounds(bounds, { padding: [40, 40] });
+                    }
+                }
+            }, [mapReady, data]);
 
             // Initialize Leaflet map
             React.useEffect(() => {
@@ -1494,12 +1498,14 @@
                 leafletMapRef.current = map;
                 tileLayerRef.current = tile;
                 layersGroupRef.current = layersGroup;
+                setMapReady(true);
 
                 return () => {
                     map.remove();
                     leafletMapRef.current = null;
                     tileLayerRef.current = null;
                     layersGroupRef.current = null;
+                    setMapReady(false);
                 };
             }, []);
 
@@ -1717,7 +1723,7 @@
                     });
                 }
                 
-            }, [data, layers, priceFilter, areaFilter, searchQuery]);
+            }, [data, layers, priceFilter, areaFilter, searchQuery, mapReady]);
 
             // Dispatch layout resize triggers to prevent Leaflet container clipping
             React.useEffect(() => {
