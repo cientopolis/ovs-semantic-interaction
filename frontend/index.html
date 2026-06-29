@@ -1282,6 +1282,18 @@
             `;
         }
         // ─────────────────────────────────────────────────────────────────────────
+        const classLabelMap = {
+            'Apartment': 'Departamento',
+            'House': 'Casa',
+            'CondominiumUnit': 'Lote PH',
+            'ParkingLot': 'Cochera',
+            'Store': 'Local comercial',
+            'Warehouse': 'Galpón',
+            'Farm': 'Campo',
+            'Land': 'Terreno',
+            'Hotel': 'Hotel',
+            'Lot': 'Lote'
+        };
 
         function App() {
             // State
@@ -1397,6 +1409,51 @@
             
             // Filter Range States
             const [areaFilter, setAreaFilter] = React.useState(50);
+            const [selectedTypes, setSelectedTypes] = React.useState({
+                Apartment: true,
+                House: true,
+                CondominiumUnit: true,
+                ParkingLot: true,
+                Store: true,
+                Warehouse: true,
+                Farm: true,
+                Land: true,
+                Hotel: true,
+                Lot: true,
+                RealEstate: true
+            });
+
+            const selectAllTypes = () => {
+                setSelectedTypes({
+                    Apartment: true,
+                    House: true,
+                    CondominiumUnit: true,
+                    ParkingLot: true,
+                    Store: true,
+                    Warehouse: true,
+                    Farm: true,
+                    Land: true,
+                    Hotel: true,
+                    Lot: true,
+                    RealEstate: true
+                });
+            };
+
+            const selectNoneTypes = () => {
+                setSelectedTypes({
+                    Apartment: false,
+                    House: false,
+                    CondominiumUnit: false,
+                    ParkingLot: false,
+                    Store: false,
+                    Warehouse: false,
+                    Farm: false,
+                    Land: false,
+                    Hotel: false,
+                    Lot: false,
+                    RealEstate: false
+                });
+            };
             
             // Sorting & Editing states
             const [sortField, setSortField] = React.useState('id');
@@ -1469,19 +1526,6 @@
                             // Process types and typeLabels to find subclass and translate it
                             const rawTypes = ent.types ? ent.types.split(';') : [];
                             const rawLabels = ent.typeLabels ? ent.typeLabels.split(';') : [];
-                            
-                            const classLabelMap = {
-                                'Apartment': 'Departamento',
-                                'House': 'Casa',
-                                'CondominiumUnit': 'Lote PH',
-                                'ParkingLot': 'Cochera',
-                                'Store': 'Local comercial',
-                                'Warehouse': 'Galpón',
-                                'Farm': 'Campo',
-                                'Land': 'Terreno',
-                                'Hotel': 'Hotel',
-                                'Lot': 'Lote'
-                            };
 
                             let selectedType = 'RealEstate';
                             let selectedLabel = 'Inmueble';
@@ -1575,7 +1619,8 @@
                     const matchesSearch = item.label.toLowerCase().includes(searchQuery.toLowerCase()) || 
                                           (item.barrio && item.barrio.toLowerCase().includes(searchQuery.toLowerCase()));
                     const matchesArea = item.area === 'N/A' ? true : item.area >= areaFilter;
-                    return matchesSearch && matchesArea;
+                    const matchesType = selectedTypes[item.type] === true;
+                    return matchesSearch && matchesArea && matchesType;
                 });
 
                 // Calculate counts per Neighborhood for Choropleth
@@ -1720,7 +1765,7 @@
                          layersGroup.addLayer(marker);
                      });
                 }
-            }, [data, layers, areaFilter, searchQuery, mapReady]);
+            }, [data, layers, areaFilter, selectedTypes, searchQuery, mapReady]);
 
             // Dispatch layout resize triggers to prevent Leaflet container clipping
             React.useEffect(() => {
@@ -1771,7 +1816,8 @@
                     const matchesSearch = item.label.toLowerCase().includes(searchQuery.toLowerCase()) || 
                                           item.barrio.toLowerCase().includes(searchQuery.toLowerCase());
                     const matchesArea = item.area === 'N/A' ? true : item.area >= areaFilter;
-                    return matchesSearch && matchesArea;
+                    const matchesType = selectedTypes[item.type] === true;
+                    return matchesSearch && matchesArea && matchesType;
                 });
                 
                 return [...filtered].sort((a, b) => {
@@ -1788,7 +1834,7 @@
                             : bVal - aVal;
                     }
                 });
-            }, [data, sortField, sortDirection, searchQuery, areaFilter]);
+            }, [data, sortField, sortDirection, searchQuery, areaFilter, selectedTypes]);
 
             // Layout
             return html`
@@ -2000,6 +2046,34 @@
                                             value=${areaFilter} 
                                             onChange=${(e) => setAreaFilter(parseInt(e.target.value))} 
                                         />
+                                    </div>
+                                </div>
+
+                                <div class="control-section" ...${getDevProps('#typeFiltersSection', 'Filtros de Tipo de Inmueble')}>
+                                    <h4>Tipos de Inmueble</h4>
+                                    <div class="type-filter-grid" style=${{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '10px' }}>
+                                        ${Object.entries(classLabelMap).map(([typeKey, typeLabel]) => html`
+                                            <label class="layer-toggle" style=${{ padding: '6px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-light, rgba(255,255,255,0.05))', borderRadius: '6px', border: '1px solid var(--border-light, rgba(255,255,255,0.1))', cursor: 'pointer' }} key=${typeKey}>
+                                                <span>${typeLabel}</span>
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked=${selectedTypes[typeKey]} 
+                                                    onChange=${(e) => setSelectedTypes(prev => ({ ...prev, [typeKey]: e.target.checked }))} 
+                                                />
+                                            </label>
+                                        `)}
+                                        <label class="layer-toggle" style=${{ padding: '6px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-light, rgba(255,255,255,0.05))', borderRadius: '6px', border: '1px solid var(--border-light, rgba(255,255,255,0.1))', cursor: 'pointer' }}>
+                                            <span>Otros</span>
+                                            <input 
+                                                type="checkbox" 
+                                                checked=${selectedTypes['RealEstate']} 
+                                                onChange=${(e) => setSelectedTypes(prev => ({ ...prev, 'RealEstate': e.target.checked }))} 
+                                            />
+                                        </label>
+                                    </div>
+                                    <div style=${{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                                        <button class="btn btn-secondary btn-sm" style=${{ flex: 1, padding: '6px', fontSize: '11px', borderRadius: '6px', border: '1px solid var(--border-light, rgba(255,255,255,0.1))', background: 'rgba(255,255,255,0.05)', color: 'var(--text-primary)', cursor: 'pointer' }} onClick=${selectAllTypes}>Todos</button>
+                                        <button class="btn btn-secondary btn-sm" style=${{ flex: 1, padding: '6px', fontSize: '11px', borderRadius: '6px', border: '1px solid var(--border-light, rgba(255,255,255,0.1))', background: 'rgba(255,255,255,0.05)', color: 'var(--text-primary)', cursor: 'pointer' }} onClick=${selectNoneTypes}>Ninguno</button>
                                     </div>
                                 </div>
                             </div>
