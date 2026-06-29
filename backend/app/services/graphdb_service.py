@@ -193,8 +193,10 @@ class GraphDBService:
         PREFIX geosparql: <http://www.opengis.net/ont/geosparql#>
         PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
         PREFIX owl: <http://www.w3.org/2002/07/owl#>
+        PREFIX pronto: <https://raw.githubusercontent.com/fdioguardi/pronto/main/ontology/pronto.owl#>
+        PREFIX gr: <http://purl.org/goodrelations/v1#>
         
-        SELECT DISTINCT ?entity ?label ?type ?coords WHERE {
+        SELECT DISTINCT ?entity ?label ?type ?coords ?areaVal WHERE {
             # La entidad debe ser de tipo RealEstate o subclase de ella
             ?entity a ?type .
             ?type rdfs:subClassOf* rec:RealEstate .
@@ -231,6 +233,25 @@ class GraphDBService:
                 ?geometry geosparql:asWKT ?coords .
             }
             
+            # Extraer superficie real de la base de conocimiento
+            OPTIONAL {
+                ?entity rec:includes ?sp .
+                ?sp :hasFeature ?featTotal .
+                ?featTotal a :Surface .
+                ?featTotal :hasValue ?vNodeTotal .
+                ?vNodeTotal pronto:size_type 'total' .
+                ?vNodeTotal gr:hasValue ?areaValTotal .
+            }
+            OPTIONAL {
+                ?entity rec:includes ?sp .
+                ?sp :hasFeature ?featCov .
+                ?featCov a :Surface .
+                ?featCov :hasValue ?vNodeCov .
+                ?vNodeCov pronto:size_type 'covered' .
+                ?vNodeCov gr:hasValue ?areaValCov .
+            }
+            BIND(COALESCE(?areaValTotal, ?areaValCov) AS ?areaVal)
+            
             # Etiqueta opcional en español o neutra
             OPTIONAL {
                 ?entity rdfs:label ?label .
@@ -247,6 +268,7 @@ class GraphDBService:
                     "label": b.get("label", {}).get("value"),
                     "type": b["type"]["value"],
                     "coords": b.get("coords", {}).get("value"),
+                    "area": b.get("areaVal", {}).get("value"),
                 })
             return entities
         except Exception as e:

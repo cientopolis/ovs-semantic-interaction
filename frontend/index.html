@@ -1463,11 +1463,11 @@
                             const lng = parsedCoords ? parsedCoords[1] : -58.4 + (Math.random() - 0.5) * 0.1;
                             const label = ent.label || ent.entity.split('#').pop().split('/').pop();
                             
-                            // Deterministic mock variables for soil value/area based on coordinates or index
-                            const area = 50 + Math.floor((Math.abs(lat) * 1000) % 250);
-                            const valorSuelo = 100000 + Math.floor((Math.abs(lng) * 10000) % 900) * 1500;
-                            const destino = idx % 3 === 0 ? 'Residencial' : (idx % 3 === 1 ? 'Comercial' : 'Baldío');
-                            const barrio = getNeighborhoodFromCoords(lat, lng);
+                            // Extract real area if returned, otherwise set as 'N/A'
+                            const area = ent.area ? parseFloat(ent.area) : 'N/A';
+                            const valorSuelo = 'N/A';
+                            const destino = 'N/A';
+                            const barrio = 'N/A';
                             
                             return {
                                 id: `PRC-${idx.toString().padStart(3, '0')}`,
@@ -1546,21 +1546,24 @@
                 // Filtered records
                 const filtered = data.filter(item => {
                     const matchesSearch = item.label.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                                          item.barrio.toLowerCase().includes(searchQuery.toLowerCase());
-                    const matchesPrice = item.valorSuelo <= priceFilter;
-                    const matchesArea = item.area >= areaFilter;
+                                          (item.barrio && item.barrio.toLowerCase().includes(searchQuery.toLowerCase()));
+                    const matchesPrice = item.valorSuelo === 'N/A' ? true : item.valorSuelo <= priceFilter;
+                    const matchesArea = item.area === 'N/A' ? true : item.area >= areaFilter;
                     return matchesSearch && matchesPrice && matchesArea;
                 });
 
                 // Calculate averages per Neighborhood for Choropleth / 3D Extrusions
                 const neighborhoodStats = {};
                 filtered.forEach(item => {
+                    if (item.barrio === 'N/A') return;
                     if (!neighborhoodStats[item.barrio]) {
                         neighborhoodStats[item.barrio] = { count: 0, totalPrice: 0, totalArea: 0 };
                     }
                     neighborhoodStats[item.barrio].count++;
-                    neighborhoodStats[item.barrio].totalPrice += item.valorSuelo;
-                    neighborhoodStats[item.barrio].totalArea += item.area;
+                    const priceVal = item.valorSuelo === 'N/A' ? 0 : parseFloat(item.valorSuelo);
+                    const areaVal = item.area === 'N/A' ? 0 : parseFloat(item.area);
+                    neighborhoodStats[item.barrio].totalPrice += priceVal;
+                    neighborhoodStats[item.barrio].totalArea += areaVal;
                 });
                 
                 Object.keys(neighborhoodStats).forEach(name => {
@@ -1669,28 +1672,31 @@
                 // 4. Points Layer
                 if (layers.points) {
                     filtered.forEach(item => {
-                        const marker = L.circleMarker([item.lat, item.lng], {
-                            radius: 7,
-                            fillColor: item.destino === 'Residencial' ? '#3b82f6' : (item.destino === 'Comercial' ? '#10b981' : '#ef4444'),
-                            fillOpacity: 0.9,
-                            color: '#ffffff',
-                            weight: 1.5
-                        });
-                        
-                        marker.bindPopup(`
-                            <div style="font-family: sans-serif; padding: 4px; min-width: 200px;">
-                                <h4 style="margin: 0 0 6px 0; font-size:14px; font-weight:600">
-                                    <a href="javascript:void(0)" 
-                                       onclick="window.inspectIriInGraph('${item.entity}')" 
-                                       style="color: var(--accent-primary, #7c3aed); text-decoration: underline; font-weight: 700;"
-                                       title="Ver en Grafo KG">
-                                        ${item.label}
-                                    </a>
-                                </h4>
-                                <p style="margin: 2px 0; font-size:11px"><strong>Barrio:</strong> ${item.barrio}</p>
-                                <p style="margin: 2px 0; font-size:11px"><strong>Área:</strong> ${item.area} m²</p>
-                                <p style="margin: 2px 0; font-size:11px"><strong>Valor Suelo:</strong> u$s ${item.valorSuelo.toLocaleString()}</p>
-                                <p style="margin: 2px 0; font-size:11px"><strong>Destino:</strong> ${item.destino}</p>
+                         const marker = L.circleMarker([item.lat, item.lng], {
+                             radius: 7,
+                             fillColor: item.destino === 'Residencial' ? '#3b82f6' : (item.destino === 'Comercial' ? '#10b981' : (item.destino === 'Baldío' ? '#ef4444' : '#6b7280')),
+                             fillOpacity: 0.9,
+                             color: '#ffffff',
+                             weight: 1.5
+                         });
+                         
+                         const areaText = item.area === 'N/A' ? 'N/A' : `${item.area} m²`;
+                         const valorText = item.valorSuelo === 'N/A' ? 'N/A' : `u$s ${item.valorSuelo.toLocaleString()}`;
+
+                         marker.bindPopup(`
+                             <div style="font-family: sans-serif; padding: 4px; min-width: 200px;">
+                                 <h4 style="margin: 0 0 6px 0; font-size:14px; font-weight:600">
+                                     <a href="javascript:void(0)" 
+                                        onclick="window.inspectIriInGraph('${item.entity}')" 
+                                        style="color: var(--accent-primary, #7c3aed); text-decoration: underline; font-weight: 700;"
+                                        title="Ver en Grafo KG">
+                                         ${item.label}
+                                     </a>
+                                 </h4>
+                                 <p style="margin: 2px 0; font-size:11px"><strong>Barrio:</strong> ${item.barrio}</p>
+                                 <p style="margin: 2px 0; font-size:11px"><strong>Área:</strong> ${areaText}</p>
+                                 <p style="margin: 2px 0; font-size:11px"><strong>Valor Suelo:</strong> ${valorText}</p>
+                                 <p style="margin: 2px 0; font-size:11px"><strong>Destino:</strong> ${item.destino}</p>
                                 <hr style="margin: 6px 0; border: 0; border-top: 1px solid var(--border-light, #ddd);" />
                                 <p style="margin: 2px 0; font-size:10px; color: var(--text-secondary, #666);">
                                     <strong>Leaflet Lat/Lng:</strong><br/>
