@@ -1560,7 +1560,7 @@
                             else color = '#38bdf8'; // high
                         }
                         
-                        const polygon = L.polygon(neigh.bounds, {
+                        const polygon = L.rectangle(neigh.bounds, {
                             color: neigh.color,
                             weight: 2,
                             fillColor: color,
