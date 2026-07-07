@@ -185,94 +185,27 @@ class GraphDBService:
             raise Exception(f"Error al obtener relaciones de la entidad: {str(e)}")
 
     async def get_geolocalized_entities(self, repo_id: str) -> List[Dict[str, Any]]:
-        """Obtiene EXCLUSIVAMENTE entidades de tipo RealEstate (y sus subclases) con geolocalización.
-        Las coordenadas se obtienen navegando rec:includes hacia el espacio con geo:hasGeometry.
-        Agrupa por entidad para concatenar múltiples tipos y obtener sus etiquetas en español/neutras."""
+        """Obtiene entidades geolocalizadas con su tipo y coordenadas."""
         query = """
+        PREFIX gr: <http://purl.org/goodrelations/v1#>
+        PREFIX pronto: <https://raw.githubusercontent.com/fdioguardi/pronto/main/ontology/pronto.owl#>
         PREFIX : <http://www.semanticweb.org/luciana/ontologies/2024/8/inmontology#>
         PREFIX rec: <https://w3id.org/rec#>
         PREFIX geosparql: <http://www.opengis.net/ont/geosparql#>
         PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
         PREFIX owl: <http://www.w3.org/2002/07/owl#>
-        PREFIX pronto: <https://raw.githubusercontent.com/fdioguardi/pronto/main/ontology/pronto.owl#>
-        PREFIX gr: <http://purl.org/goodrelations/v1#>
         
-        SELECT ?entity 
-               (SAMPLE(?label) AS ?labelVal) 
-               (GROUP_CONCAT(DISTINCT ?type; separator=";") AS ?types) 
-               (GROUP_CONCAT(DISTINCT ?typeLabel; separator=";") AS ?typeLabels) 
-               (SAMPLE(?coords) AS ?coordsVal) 
-               (SAMPLE(?areaVal) AS ?areaValSample) 
+        SELECT ?entity ?type ?coords
         WHERE {
             # La entidad debe ser de tipo RealEstate o subclase de ella
             ?entity a ?type .
-            ?type rdfs:subClassOf* rec:RealEstate .
+            ?type rdfs:subClassOf rec:RealEstate .
             
-            # Obtener coordenadas navegando desde el inmueble hacia el espacio con geometría
-            {
-                # Nivel 1: El inmueble incluye directamente al espacio con geometría
-                ?entity rec:includes ?space .
-                ?space geosparql:hasGeometry ?geometry .
-                ?geometry geosparql:asWKT ?coords .
-            } UNION {
-                # Nivel 2: El inmueble incluye un espacio que a su vez incluye el espacio con geometría
-                ?entity rec:includes ?p1 .
-                ?p1 rec:includes ?space .
-                ?space geosparql:hasGeometry ?geometry .
-                ?geometry geosparql:asWKT ?coords .
-            } UNION {
-                # Nivel 3: tres niveles de inclusión
-                ?entity rec:includes ?p1 .
-                ?p1 rec:includes ?p2 .
-                ?p2 rec:includes ?space .
-                ?space geosparql:hasGeometry ?geometry .
-                ?geometry geosparql:asWKT ?coords .
-            } UNION {
-                # Alternativa: relación rec:includedIn inversa (nivel 1)
-                ?space rec:includedIn ?entity .
-                ?space geosparql:hasGeometry ?geometry .
-                ?geometry geosparql:asWKT ?coords .
-            } UNION {
-                # Alternativa: relación rec:includedIn inversa (nivel 2)
-                ?space rec:includedIn ?p1 .
-                ?p1 rec:includedIn ?entity .
-                ?space geosparql:hasGeometry ?geometry .
-                ?geometry geosparql:asWKT ?coords .
-            }
-            
-            # Extraer superficie real de la base de conocimiento
-            OPTIONAL {
-                ?entity rec:includes ?sp .
-                ?sp :hasFeature ?featTotal .
-                ?featTotal a :Surface .
-                ?featTotal :hasValue ?vNodeTotal .
-                ?vNodeTotal pronto:size_type 'total' .
-                ?vNodeTotal gr:hasValue ?areaValTotal .
-            }
-            OPTIONAL {
-                ?entity rec:includes ?sp .
-                ?sp :hasFeature ?featCov .
-                ?featCov a :Surface .
-                ?featCov :hasValue ?vNodeCov .
-                ?vNodeCov pronto:size_type 'covered' .
-                ?vNodeCov gr:hasValue ?areaValCov .
-            }
-            BIND(COALESCE(?areaValTotal, ?areaValCov) AS ?areaVal)
-            
-            # Etiqueta opcional en español o neutra
-            OPTIONAL {
-                ?entity rdfs:label ?label .
-                FILTER(lang(?label) = "es" || lang(?label) = "es-ar" || lang(?label) = "")
-            }
-
-            # Obtener etiqueta de la clase/tipo para el subtipo
-            OPTIONAL {
-                ?type rdfs:label ?typeLabel .
-                FILTER(lang(?typeLabel) = "es" || lang(?typeLabel) = "es-ar" || lang(?typeLabel) = "")
-            }
-        }
-        GROUP BY ?entity
-        LIMIT 5000
+            # Nivel 1: El inmueble incluye directamente al espacio con geometría
+            ?entity rec:includes ?space .
+            ?space geosparql:hasGeometry ?geometry .
+            ?geometry geosparql:asWKT ?coords .
+        } limit 5000
         """
         try:
             result = await self.execute_query(repo_id, query)
@@ -280,11 +213,8 @@ class GraphDBService:
             for b in result.get("results", {}).get("bindings", []):
                 entities.append({
                     "entity": b["entity"]["value"],
-                    "label": b.get("labelVal", {}).get("value"),
-                    "types": b.get("types", {}).get("value"),
-                    "typeLabels": b.get("typeLabels", {}).get("value"),
-                    "coords": b.get("coordsVal", {}).get("value"),
-                    "area": b.get("areaValSample", {}).get("value"),
+                    "type": b["type"]["value"],
+                    "coords": b["coords"]["value"],
                 })
             return entities
         except Exception as e:

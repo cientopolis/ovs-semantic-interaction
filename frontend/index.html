@@ -1513,39 +1513,25 @@
                     .then(res => res.json())
                     .then(entities => {
                         const parsed = entities.map((ent, idx) => {
-                            const parsedCoords = parseWKT(ent.coords || ent.coordinates);
+                            const parsedCoords = parseWKT(ent.coords);
                             const lat = parsedCoords ? parsedCoords[0] : -34.6 + (Math.random() - 0.5) * 0.1;
                             const lng = parsedCoords ? parsedCoords[1] : -58.4 + (Math.random() - 0.5) * 0.1;
-                            const label = ent.label || ent.entity.split('#').pop().split('/').pop();
+                            const label = ent.entity.split('#').pop().split('/').pop();
                             
-                            // Extract real area if returned, otherwise set as 'N/A'
-                            const area = ent.area ? parseFloat(ent.area) : 'N/A';
+                            const area = 'N/A';
                             const destino = 'N/A';
                             const barrio = 'N/A';
 
-                            // Process types and typeLabels to find subclass and translate it
-                            const rawTypes = ent.types ? ent.types.split(';') : [];
-                            const rawLabels = ent.typeLabels ? ent.typeLabels.split(';') : [];
-
-                            let selectedType = 'RealEstate';
-                            let selectedLabel = 'Inmueble';
-
-                            for (let i = 0; i < rawTypes.length; i++) {
-                                const tUri = rawTypes[i];
-                                const tName = tUri.split('#').pop().split('/').pop();
-                                if (classLabelMap[tName]) {
-                                    selectedType = tName;
-                                    selectedLabel = rawLabels[i] || classLabelMap[tName];
-                                    break;
-                                }
-                            }
+                            // Extract subclass name from the type URI
+                            const typeName = ent.type ? ent.type.split('#').pop().split('/').pop() : 'RealEstate';
+                            const typeLabel = classLabelMap[typeName] || typeName;
                             
                             return {
                                 id: `PRC-${idx.toString().padStart(3, '0')}`,
                                 entity: ent.entity,
                                 label,
-                                type: selectedType,
-                                typeLabel: selectedLabel,
+                                type: typeName,
+                                typeLabel: typeLabel,
                                 barrio,
                                 area,
                                 destino,
@@ -1743,8 +1729,6 @@
                              weight: 1.5
                          });
                          
-                         const areaText = item.area === 'N/A' ? 'N/A' : `${item.area} m²`;
-
                          marker.bindPopup(`
                              <div style="font-family: sans-serif; padding: 4px; min-width: 200px;">
                                  <h4 style="margin: 0 0 6px 0; font-size:14px; font-weight:600">
@@ -1756,8 +1740,15 @@
                                      </a>
                                  </h4>
                                  <p style="margin: 2px 0; font-size:11px"><strong>Clase de Inmueble:</strong> ${item.typeLabel || item.type}</p>
-                                 <p style="margin: 2px 0; font-size:11px"><strong>Barrio:</strong> ${item.barrio}</p>
-                                 <p style="margin: 2px 0; font-size:11px"><strong>Área:</strong> ${areaText}</p>
+                                 <hr style="margin: 6px 0; border: 0; border-top: 1px solid var(--border-light, #ddd);" />
+                                 <p style="margin: 2px 0; font-size:10px; color: var(--text-secondary, #666);">
+                                     <strong>Coordenadas (Lat, Lng):</strong><br/>
+                                     <span style="font-family: monospace;">${item.lat.toFixed(6)}, ${item.lng.toFixed(6)}</span>
+                                 </p>
+                                 <p style="margin: 2px 0; font-size:10px; color: var(--text-secondary, #666); word-break: break-all;">
+                                     <strong>WKT original:</strong><br/>
+                                     <span style="font-family: monospace; font-size: 9px;">${item.rawCoords || 'No disponible'}</span>
+                                 </p>
                              </div>
                          `);
                          
