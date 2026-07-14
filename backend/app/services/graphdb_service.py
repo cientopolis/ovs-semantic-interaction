@@ -198,13 +198,12 @@ class GraphDBService:
         SELECT ?entity ?type ?coords
         WHERE {
             # La entidad debe ser de tipo RealEstate o subclase de ella
+            ?entity a rec:RealEstate;
+              rec:includes/geosparql:hasGeometry/geosparql:asWKT ?coords .
+
             ?entity a ?type .
-            ?type rdfs:subClassOf rec:RealEstate .
+            FILTER(?type = :House || ?type = :Wharehouse || ?type = :Apartment || ?type = :CondominiumUnit || ?type = :Land || ?type = :Store)            
             
-            # Nivel 1: El inmueble incluye directamente al espacio con geometría
-            ?entity rec:includes ?space .
-            ?space geosparql:hasGeometry ?geometry .
-            ?geometry geosparql:asWKT ?coords .
         } limit 5000
         """
         try:
@@ -218,7 +217,47 @@ class GraphDBService:
                 })
             return entities
         except Exception as e:
-            raise Exception(f"Error al obtener entidades geolocalizadas: {str(e)}")
+            raise Exception("Error al obtener entidades geolocalizadas: {str(e)}")
+
+    async def get_entities_in_bbox(
+        self, repo_id: str, min_lat: float, max_lat: float, min_lng: float, max_lng: float
+    ) -> List[Dict[str, Any]]:
+        """Obtiene todas las entidades geolocalizadas dentro de una caja contenedora (bbox) sin límites de cantidad."""
+        query = f"""
+        PREFIX gr: <http://purl.org/goodrelations/v1#>
+        PREFIX pronto: <https://raw.githubusercontent.com/fdioguardi/pronto/main/ontology/pronto.owl#>
+        PREFIX : <http://www.semanticweb.org/luciana/ontologies/2024/8/inmontology#>
+        PREFIX rec: <https://w3id.org/rec#>
+        PREFIX geosparql: <http://www.opengis.net/ont/geosparql#>
+        PREFIX geof: <http://www.opengis.net/def/function/geosparql/>
+        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+        PREFIX owl: <http://www.w3.org/2002/07/owl#>
+        PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+        
+        SELECT ?entity ?type ?coords
+        WHERE {{
+            # La entidad debe ser de tipo RealEstate o subclase de ella
+            ?entity a rec:RealEstate;
+              rec:includes/geosparql:hasGeometry/geosparql:asWKT ?coords .
+
+            ?entity a ?type .
+            #FILTER(?type = :House || ?type = :Wharehouse || ?type = :Apartment || ?type = :CondominiumUnit || ?type = :Land || ?type = :Store)
+            
+            FILTER(geof:sfWithin(?coords, "<http://www.opengis.net/def/crs/EPSG/0/4326> Polygon(({min_lng} {min_lat}, {max_lng} {min_lat}, {max_lng} {max_lat}, {min_lng} {max_lat}, {min_lng} {min_lat}))"^^geosparql:wktLiteral))
+        }}
+        """
+        try:
+            result = await self.execute_query(repo_id, query)
+            entities = []
+            for b in result.get("results", {}).get("bindings", []):
+                entities.append({
+                    "entity": b["entity"]["value"],
+                    "type": b["type"]["value"],
+                    "coords": b["coords"]["value"],
+                })
+            return entities
+        except Exception as e:
+            raise Exception(f"Error al obtener entidades en bbox: {str(e)}")
 
     async def get_node_relations_by_iri(self, repo_id: str, entity_uri: str) -> Dict[str, Any]:
         """Obtiene las relaciones salientes de un nodo IRI para el inspector de grafo.

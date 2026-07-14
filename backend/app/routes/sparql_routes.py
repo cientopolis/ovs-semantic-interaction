@@ -63,6 +63,22 @@ async def get_geolocalized(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/entities/{repo_id}/bbox", response_model=List[Dict[str, Any]])
+async def get_geolocalized_in_bbox(
+    repo_id: str,
+    min_lat: float = Query(..., description="Latitud mínima"),
+    max_lat: float = Query(..., description="Latitud máxima"),
+    min_lng: float = Query(..., description="Longitud mínima"),
+    max_lng: float = Query(..., description="Longitud máxima"),
+    service: GraphDBService = Depends(get_graphdb_service)
+):
+    """Retorna una lista de entidades geolocalizadas dentro de un Bounding Box sin límites."""
+    try:
+        entities = await service.get_entities_in_bbox(repo_id, min_lat, max_lat, min_lng, max_lng)
+        return entities
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/graph/{repo_id}/node")
 async def get_graph_node(
     repo_id: str,

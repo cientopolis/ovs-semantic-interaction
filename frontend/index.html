@@ -1302,6 +1302,11 @@
             const [repositories, setRepositories] = React.useState([]);
             const [activeRepo, setActiveRepo] = React.useState(() => localStorage.getItem('activeRepository') || '');
             const [data, setData] = React.useState([]);
+            const [originalData, setOriginalData] = React.useState([]);
+            
+            // Spatial filter states
+            const [isSpatialLoading, setIsSpatialLoading] = React.useState(false);
+            const [isSpatialFiltered, setIsSpatialFiltered] = React.useState(false);
             
             // Dev Mode Inspector States
             const [devMode, setDevMode] = React.useState(() => localStorage.getItem('devModeActive') === 'true');
@@ -1374,6 +1379,62 @@
                     });
                 }
                 setActiveDialog(null);
+            };
+
+            const handleSpatialQuery = () => {
+                if (!leafletMapRef.current || !activeRepo) return;
+                const bounds = leafletMapRef.current.getBounds();
+                const minLat = bounds.getSouth();
+                const maxLat = bounds.getNorth();
+                const minLng = bounds.getWest();
+                const maxLng = bounds.getEast();
+
+                setIsSpatialLoading(true);
+                fetch(`/api/sparql/entities/${activeRepo}/bbox?min_lat=${minLat}&max_lat=${maxLat}&min_lng=${minLng}&max_lng=${maxLng}`)
+                    .then(res => {
+                        if (!res.ok) throw new Error();
+                        return res.json();
+                    })
+                    .then(entities => {
+                        const parsed = entities.map((ent, idx) => {
+                            const parsedCoords = parseWKT(ent.coords);
+                            const pLat = parsedCoords ? parsedCoords[0] : -34.6 + (Math.random() - 0.5) * 0.1;
+                            const pLng = parsedCoords ? parsedCoords[1] : -58.4 + (Math.random() - 0.5) * 0.1;
+                            const label = ent.entity.split('#').pop().split('/').pop();
+                            
+                            const typeName = ent.type ? ent.type.split('#').pop().split('/').pop() : 'RealEstate';
+                            const typeLabel = classLabelMap[typeName] || typeName;
+                            
+                            return {
+                                id: `PRC-${idx.toString().padStart(3, '0')}`,
+                                entity: ent.entity,
+                                label,
+                                type: typeName,
+                                typeLabel: typeLabel,
+                                barrio: 'N/A',
+                                area: 'N/A',
+                                destino: 'N/A',
+                                lat: pLat,
+                                lng: pLng,
+                                rawCoords: ent.coords
+                            };
+                        });
+                        setData(parsed);
+                        setIsSpatialFiltered(true);
+                        setIsSpatialLoading(false);
+                    })
+                    .catch(err => {
+                        console.error("Error executing spatial query:", err);
+                        setIsSpatialLoading(false);
+                        alert("Error al ejecutar la consulta espacial por Bounding Box.");
+                    });
+            };
+
+            const handleClearSpatialQuery = () => {
+                if (isSpatialFiltered) {
+                    setData(originalData);
+                    setIsSpatialFiltered(false);
+                }
             };
 
             const handleResetAlias = () => {
@@ -1467,6 +1528,8 @@
             const mapContainerRef = React.useRef(null);
             const tileLayerRef = React.useRef(null);
             const layersGroupRef = React.useRef(null);
+            const workerRef = React.useRef(null);
+            const clusterMarkersRef = React.useRef([]);
 
             // Set HTML attribute for theme and expose global inspect function
             React.useEffect(() => {
@@ -1541,10 +1604,13 @@
                             };
                         });
                         setData(parsed);
+                        setOriginalData(parsed);
+                        setIsSpatialFiltered(false);
                     })
                     .catch(err => {
                         console.error("Error fetching geolocalized entities:", err);
                         setData([]);
+                        setOriginalData([]);
                     });
             }, [activeRepo]);
 
@@ -1561,14 +1627,15 @@
                 }
             }, [mapReady, data]);
 
-            // Initialize Leaflet map
+            // Initialize Leaflet map and Web Worker
             React.useEffect(() => {
                 if (!mapContainerRef.current) return;
                 
                 const map = L.map(mapContainerRef.current, {
                     center: [-34.5882, -58.3974],
                     zoom: 12,
-                    zoomControl: false
+                    zoomControl: false,
+                    preferCanvas: true
                 });
                 
                 L.control.zoom({ position: 'topright' }).addTo(map);
@@ -1584,20 +1651,83 @@
                 layersGroupRef.current = layersGroup;
                 setMapReady(true);
 
+                // Create inline Web Worker code for Supercluster
+                const workerCode = `
+                    importScripts('https://unpkg.com/supercluster@8.0.1/dist/supercluster.min.js');
+
+                    let index = null;
+
+                    self.onmessage = function(e) {
+                        const { type, payload } = e.data;
+
+                        if (type === 'LOAD_POINTS') {
+                            index = new Supercluster({
+                                radius: 60,
+                                maxZoom: 17,
+                                map: (props) => ({
+                                    type: props.type,
+                                    label: props.label,
+                                    entity: props.entity,
+                                    rawCoords: props.rawCoords
+                                })
+                            });
+                            
+                            const features = payload.map(item => ({
+                                type: 'Feature',
+                                geometry: {
+                                    type: 'Point',
+                                    coordinates: [item.lng, item.lat]
+                                },
+                                properties: {
+                                    id: item.id,
+                                    entity: item.entity,
+                                    label: item.label,
+                                    type: item.type,
+                                    typeLabel: item.typeLabel,
+                                    rawCoords: item.rawCoords
+                                }
+                            }));
+
+                            index.load(features);
+                            self.postMessage({ type: 'LOADED' });
+                        }
+
+                        if (type === 'GET_CLUSTERS') {
+                            if (!index) return;
+                            const { bbox, zoom } = payload;
+                            const clusters = index.getClusters(bbox, zoom);
+                            self.postMessage({ type: 'CLUSTERS_RESULT', payload: clusters });
+                        }
+                    };
+                `;
+
+                const blob = new Blob([workerCode], { type: 'application/javascript' });
+                const worker = new Worker(URL.createObjectURL(blob));
+                workerRef.current = worker;
+
                 return () => {
                     map.remove();
                     leafletMapRef.current = null;
                     tileLayerRef.current = null;
                     layersGroupRef.current = null;
                     setMapReady(false);
+                    if (workerRef.current) {
+                        workerRef.current.terminate();
+                        workerRef.current = null;
+                    }
                 };
             }, []);
 
             // Redraw layers when variables, selections or options change
             React.useEffect(() => {
-                if (!leafletMapRef.current || !layersGroupRef.current) return;
+                if (!leafletMapRef.current || !layersGroupRef.current || !workerRef.current) return;
                 
+                const map = leafletMapRef.current;
                 const layersGroup = layersGroupRef.current;
+                
+                // Clear any existing cluster layers
+                clusterMarkersRef.current.forEach(layer => map.removeLayer(layer));
+                clusterMarkersRef.current = [];
                 layersGroup.clearLayers();
                 
                 // Filtered records
@@ -1661,13 +1791,12 @@
                 
                 // 2. Hexbin Density Layer
                 if (layers.hexbin) {
-                    // Simple Hexagonal bin calculation (approximate 0.015 lat/lng step size)
                     const step = 0.015;
                     const bins = {};
                     
                     filtered.forEach(item => {
                         const binX = Math.round(item.lng / step);
-                        const binY = Math.round(item.lat / (step * 0.866)); // Adjust for hex geometry ratio
+                        const binY = Math.round(item.lat / (step * 0.866));
                         const key = `${binX}_${binY}`;
                         
                         if (!bins[key]) {
@@ -1678,7 +1807,6 @@
                     });
                     
                     Object.values(bins).forEach(bin => {
-                        // Create hexagon corners
                         const hexCorners = [];
                         for (let i = 0; i < 6; i++) {
                             const angle = (i * 60 * Math.PI) / 180;
@@ -1688,7 +1816,6 @@
                             ]);
                         }
                         
-                        // Hex color based on item count
                         let fill = '#a78bfa';
                         if (bin.count > 2) fill = '#f43f5e';
                         else if (bin.count > 1) fill = '#fb923c';
@@ -1718,42 +1845,203 @@
                     });
                 }
 
-                // 4. Points Layer (Colored by subclass type)
+                // 4. Points Layer (Supercluster + Web Workers + Yielding Rendering)
                 if (layers.points) {
-                    filtered.forEach(item => {
-                         const marker = L.circleMarker([item.lat, item.lng], {
-                             radius: 7,
-                             fillColor: item.type === 'House' ? '#fbbf24' : (item.type === 'Apartment' ? '#3b82f6' : (item.type === 'CondominiumUnit' ? '#10b981' : (item.type === 'Store' ? '#ec4899' : (item.type === 'Warehouse' ? '#8b5cf6' : '#6b7280')))),
-                             fillOpacity: 0.9,
-                             color: '#ffffff',
-                             weight: 1.5
-                         });
-                         
-                         marker.bindPopup(`
-                             <div style="font-family: sans-serif; padding: 4px; min-width: 200px;">
-                                 <h4 style="margin: 0 0 6px 0; font-size:14px; font-weight:600">
-                                     <a href="javascript:void(0)" 
-                                        onclick="window.inspectIriInGraph('${item.entity}')" 
-                                        style="color: var(--accent-primary, #7c3aed); text-decoration: underline; font-weight: 700;"
-                                        title="Ver en Grafo KG">
-                                         ${item.label}
-                                     </a>
-                                 </h4>
-                                 <p style="margin: 2px 0; font-size:11px"><strong>Clase de Inmueble:</strong> ${item.typeLabel || item.type}</p>
-                                 <hr style="margin: 6px 0; border: 0; border-top: 1px solid var(--border-light, #ddd);" />
-                                 <p style="margin: 2px 0; font-size:10px; color: var(--text-secondary, #666);">
-                                     <strong>Coordenadas (Lat, Lng):</strong><br/>
-                                     <span style="font-family: monospace;">${item.lat.toFixed(6)}, ${item.lng.toFixed(6)}</span>
-                                 </p>
-                                 <p style="margin: 2px 0; font-size:10px; color: var(--text-secondary, #666); word-break: break-all;">
-                                     <strong>WKT original:</strong><br/>
-                                     <span style="font-family: monospace; font-size: 9px;">${item.rawCoords || 'No disponible'}</span>
-                                 </p>
-                             </div>
-                         `);
-                         
-                         layersGroup.addLayer(marker);
-                     });
+                    // Send filtered points to Web Worker to construct supercluster index
+                    workerRef.current.postMessage({ type: 'LOAD_POINTS', payload: filtered });
+
+                    const updateClusters = () => {
+                        if (!leafletMapRef.current || !workerRef.current) return;
+                        const currentMap = leafletMapRef.current;
+                        const zoom = currentMap.getZoom();
+                        const bounds = currentMap.getBounds();
+                        
+                        // Convert LatLngBounds to bbox array [westLng, southLat, eastLng, northLat]
+                        const bbox = [
+                            bounds.getWest(),
+                            bounds.getSouth(),
+                            bounds.getEast(),
+                            bounds.getNorth()
+                        ];
+
+                        workerRef.current.postMessage({
+                            type: 'GET_CLUSTERS',
+                            payload: { bbox, zoom }
+                        });
+                    };
+
+                    const handleWorkerMessage = (e) => {
+                        const { type, payload } = e.data;
+
+                        if (type === 'LOADED') {
+                            updateClusters();
+                        }
+
+                        if (type === 'CLUSTERS_RESULT') {
+                            // Remove previous cluster layers
+                            clusterMarkersRef.current.forEach(layer => map.removeLayer(layer));
+                            clusterMarkersRef.current = [];
+
+                            const newLayers = [];
+
+                            // Render clusters and individual markers asynchronously (yielding) in chunks
+                            const chunks = [];
+                            const chunkSize = 80;
+                            
+                            for (let i = 0; i < payload.length; i += chunkSize) {
+                                chunks.push(payload.slice(i, i + chunkSize));
+                            }
+
+                            let chunkIndex = 0;
+
+                            const renderChunk = () => {
+                                if (chunkIndex >= chunks.length || !leafletMapRef.current) {
+                                    // Finished chunked drawing
+                                    return;
+                                }
+
+                                const chunk = chunks[chunkIndex];
+                                chunk.forEach(f => {
+                                    const [lng, lat] = f.geometry.coordinates;
+                                    const isCluster = f.properties.cluster;
+
+                                    if (isCluster) {
+                                        const count = f.properties.point_count;
+                                        
+                                        // Dynamic size for cluster circles based on count magnitude
+                                        const size = count < 10 ? 32 : (count < 100 ? 40 : 48);
+
+                                        const clusterIcon = L.divIcon({
+                                            html: `<span>${count}</span>`,
+                                            className: 'custom-map-cluster',
+                                            iconSize: L.point(size, size)
+                                        });
+
+                                        const marker = L.marker([lat, lng], { icon: clusterIcon });
+                                        
+                                        // Zoom in on cluster click
+                                        marker.on('click', () => {
+                                            map.setView([lat, lng], map.getZoom() + 2);
+                                        });
+
+                                        // Double click on cluster triggers bbox query for the visible area
+                                        marker.on('dblclick', (e) => {
+                                            L.DomEvent.stopPropagation(e);
+                                            // Perform zoom
+                                            const targetZoom = map.getZoom() + 2;
+                                            map.setView([lat, lng], targetZoom);
+                                            
+                                            // After view update, trigger bbox fetch
+                                            setTimeout(() => {
+                                                const currentBounds = map.getBounds();
+                                                const minLat = currentBounds.getSouth();
+                                                const maxLat = currentBounds.getNorth();
+                                                const minLng = currentBounds.getWest();
+                                                const maxLng = currentBounds.getEast();
+
+                                                setIsSpatialLoading(true);
+                                                fetch(`/api/sparql/entities/${activeRepo}/bbox?min_lat=${minLat}&max_lat=${maxLat}&min_lng=${minLng}&max_lng=${maxLng}`)
+                                                    .then(res => {
+                                                        if (!res.ok) throw new Error();
+                                                        return res.json();
+                                                    })
+                                                    .then(entities => {
+                                                        const parsed = entities.map((ent, idx) => {
+                                                            const parsedCoords = parseWKT(ent.coords);
+                                                            const pLat = parsedCoords ? parsedCoords[0] : -34.6 + (Math.random() - 0.5) * 0.1;
+                                                            const pLng = parsedCoords ? parsedCoords[1] : -58.4 + (Math.random() - 0.5) * 0.1;
+                                                            const label = ent.entity.split('#').pop().split('/').pop();
+                                                            
+                                                            const typeName = ent.type ? ent.type.split('#').pop().split('/').pop() : 'RealEstate';
+                                                            const typeLabel = classLabelMap[typeName] || typeName;
+                                                            
+                                                            return {
+                                                                id: `PRC-${idx.toString().padStart(3, '0')}`,
+                                                                entity: ent.entity,
+                                                                label,
+                                                                type: typeName,
+                                                                typeLabel: typeLabel,
+                                                                barrio: 'N/A',
+                                                                area: 'N/A',
+                                                                destino: 'N/A',
+                                                                lat: pLat,
+                                                                lng: pLng,
+                                                                rawCoords: ent.coords
+                                                            };
+                                                        });
+                                                        setData(parsed);
+                                                        setIsSpatialFiltered(true);
+                                                        setIsSpatialLoading(false);
+                                                    })
+                                                    .catch(err => {
+                                                        console.error("Error executing double-click BBox query:", err);
+                                                        setIsSpatialLoading(false);
+                                                    });
+                                            }, 250);
+                                        });
+
+                                        marker.addTo(map);
+                                        newLayers.push(marker);
+                                    } else {
+                                        // Individual point marker (drawn at max zoom level or raw point)
+                                        const props = f.properties;
+                                        const marker = L.circleMarker([lat, lng], {
+                                            radius: 7,
+                                            fillColor: props.type === 'House' ? '#fbbf24' : (props.type === 'Apartment' ? '#3b82f6' : (props.type === 'CondominiumUnit' ? '#10b981' : (props.type === 'Store' ? '#ec4899' : (props.type === 'Warehouse' ? '#8b5cf6' : '#6b7280')))),
+                                            fillOpacity: 0.9,
+                                            color: '#ffffff',
+                                            weight: 1.5
+                                        });
+
+                                        marker.bindPopup(`
+                                            <div style="font-family: sans-serif; padding: 4px; min-width: 200px;">
+                                                <h4 style="margin: 0 0 6px 0; font-size:14px; font-weight:600">
+                                                    <a href="javascript:void(0)" 
+                                                       onclick="window.inspectIriInGraph('${props.entity}')" 
+                                                       style="color: var(--accent-primary, #7c3aed); text-decoration: underline; font-weight: 700;"
+                                                       title="Ver en Grafo KG">
+                                                        ${props.label}
+                                                    </a>
+                                                </h4>
+                                                <p style="margin: 2px 0; font-size:11px"><strong>Clase de Inmueble:</strong> ${props.typeLabel || props.type}</p>
+                                                <hr style="margin: 6px 0; border: 0; border-top: 1px solid var(--border-light, #ddd);" />
+                                                <p style="margin: 2px 0; font-size:10px; color: var(--text-secondary, #666);">
+                                                    <strong>Coordenadas (Lat, Lng):</strong><br/>
+                                                    <span style="font-family: monospace;">${lat.toFixed(6)}, ${lng.toFixed(6)}</span>
+                                                </p>
+                                            </div>
+                                        `);
+
+                                        marker.addTo(map);
+                                        newLayers.push(marker);
+                                    }
+                                });
+
+                                clusterMarkersRef.current = [...clusterMarkersRef.current, ...newLayers];
+                                chunkIndex++;
+                                requestAnimationFrame(renderChunk);
+                            };
+
+                            renderChunk();
+                        }
+                    };
+
+                    workerRef.current.onmessage = handleWorkerMessage;
+
+                    // Bind dynamic map pan and zoom to trigger supercluster refresh
+                    map.on('zoomend moveend', updateClusters);
+
+                    // Initial query
+                    updateClusters();
+
+                    return () => {
+                        map.off('zoomend moveend', updateClusters);
+                        if (workerRef.current) {
+                            workerRef.current.onmessage = null;
+                        }
+                        clusterMarkersRef.current.forEach(layer => map.removeLayer(layer));
+                        clusterMarkersRef.current = [];
+                    };
                 }
             }, [data, layers, areaFilter, selectedTypes, searchQuery, mapReady]);
 
@@ -2071,6 +2359,28 @@
                         
                         <!-- Map Leaflet Canvas -->
                         <div ref=${mapContainerRef} class="leaflet-container" ...${getDevProps('#leafletContainer', 'Lienzo del Mapa Leaflet')}></div>
+
+                        <!-- Floating Spatial Query Controls -->
+                        <div class="map-spatial-controls" ...${getDevProps('#mapSpatialControls', 'Controles de Consulta Espacial')}>
+                            <button class="btn-spatial" onClick=${handleSpatialQuery} disabled=${isSpatialLoading}>
+                                <i class="fa-solid fa-expand"></i>
+                                Obtener elementos del área visible
+                            </button>
+                            ${isSpatialFiltered && html`
+                                <button class="btn-spatial btn-spatial-cancel" onClick=${handleClearSpatialQuery}>
+                                    <i class="fa-solid fa-circle-xmark"></i>
+                                    Limpiar filtro de área
+                                </button>
+                            `}
+                        </div>
+
+                        <!-- Loading Spinner Overlay -->
+                        ${isSpatialLoading && html`
+                            <div class="map-loading-overlay">
+                                <div class="spatial-spinner"></div>
+                                <span>Ejecutando consulta espacial en GraphDB...</span>
+                            </div>
+                        `}
                     </div>
                     
                     <!-- Table Workspace Panel -->
